@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Gestão de Manutenção · Hotel</title>
 <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@400;600;700&family=Jost:wght@300;400;500;600&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="style.css?v=24">
+<link rel="stylesheet" href="style.css?v=25">
 <style>
 .pdf-chk{display:inline-flex;align-items:center;gap:6px;padding:6px 11px;background:var(--s4);border:1px solid var(--border);border-radius:14px;font-size:11.5px;cursor:pointer;user-select:none;transition:all .15s}
 .pdf-chk:hover{background:var(--s3);border-color:var(--border2)}
@@ -49,10 +49,21 @@
       <div class="pin-logo" style="font-size:21px;letter-spacing:2.5px;line-height:1.25">GESTÃO DE MANUTENÇÃO</div>
       <div style="font-family:'Cormorant Garamond',serif;font-size:15px;color:var(--gold);letter-spacing:6px;margin:3px 0 22px">MERIDIANA</div>
     </div>
-    <input class="pin-input" id="login-code" type="password" inputmode="text" placeholder="Código de acesso" onkeydown="if(event.key==='Enter')submitLoginCode()" autocomplete="off">
-    <div class="pin-err" id="login-err"></div>
-    <button class="btn-setup" id="login-btn" onclick="submitLoginCode()">Entrar</button>
-    <div class="pin-sub" style="margin:16px 0 0;font-size:10.5px;line-height:1.6">Informe o código da sua unidade para acessar. A diretoria usa a senha master para entrar em todas.</div>
+    <div id="login-view-code">
+      <input class="pin-input" id="login-code" type="password" inputmode="text" placeholder="Código de acesso" onkeydown="if(event.key==='Enter')submitLoginCode()" autocomplete="off">
+      <div class="pin-err" id="login-err"></div>
+      <button class="btn-setup" id="login-btn" onclick="submitLoginCode()">Entrar</button>
+      <div class="pin-sub" style="margin:16px 0 0;font-size:10.5px;line-height:1.6">Informe o código da sua unidade para acessar. A diretoria usa a senha master para entrar em todas.</div>
+      <button type="button" class="login-switch" onclick="setLoginMode('perfil')">Entrar com usuário e senha</button>
+    </div>
+    <div id="login-view-perfil" style="display:none">
+      <input class="pin-input" id="login-user" type="text" placeholder="Usuário" onkeydown="if(event.key==='Enter')document.getElementById('login-pass').focus()" autocomplete="off" style="margin-bottom:10px">
+      <input class="pin-input" id="login-pass" type="password" placeholder="Senha" onkeydown="if(event.key==='Enter')submitProfileLogin()" autocomplete="off">
+      <div class="pin-err" id="login-perfil-err"></div>
+      <button class="btn-setup" id="login-perfil-btn" onclick="submitProfileLogin()">Entrar</button>
+      <div class="pin-sub" style="margin:16px 0 0;font-size:10.5px;line-height:1.6">Acesso por perfil, com usuário e senha.</div>
+      <button type="button" class="login-switch" onclick="setLoginMode('code')">Entrar com código de unidade</button>
+    </div>
   </div>
 </div>
 
@@ -726,6 +737,6 @@
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
-<script src="app.js?v=89"></script>
+<script src="app.js?v=90"></script>
 </body>
 </html>

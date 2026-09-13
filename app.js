@@ -537,7 +537,7 @@ function renderPerfisList() {
   }).join('') : '<p class="modview-note">Nenhum perfil criado ainda.</p>';
   document.getElementById('perfis-body').innerHTML = `
     <h3>👥 Perfis de acesso</h3>
-    <p class="modview-note">Cada perfil tem um código próprio e vê só as unidades e módulos liberados. A diretoria (senha master) continua vendo tudo.</p>
+    <p class="modview-note">Cada perfil tem um usuário e senha e vê só as unidades e módulos liberados. Na tela de login, a pessoa clica em "Entrar com usuário e senha". A diretoria (senha master) continua vendo tudo.</p>
     <div style="margin:14px 0"><button class="btn btn-gold btn-xs" onclick="openPerfilEditor('')">➕ Novo perfil</button></div>
     <div class="perfil-list">${rows}</div>`;
 }
@@ -572,8 +572,8 @@ function renderPerfilEditor() {
   }).join('');
   document.getElementById('perfis-body').innerHTML = `
     <h3>${st.novo ? 'Novo perfil' : 'Editar perfil'}</h3>
-    <div class="mrow"><label>Nome do perfil</label><input class="minput" id="perfil-nome" value="${esc(st.nome)}" placeholder="Ex: Marcio Supervisor"></div>
-    <div class="mrow"><label>Código de acesso ${st.novo ? '' : '(em branco = manter o atual)'}</label><input class="minput" id="perfil-codigo" type="text" value="${esc(st.codigoNovo)}" placeholder="${st.novo ? 'defina um código' : '••••••'}" autocomplete="off"></div>
+    <div class="mrow"><label>Nome de usuário (login)</label><input class="minput" id="perfil-nome" value="${esc(st.nome)}" placeholder="Ex: Robson"></div>
+    <div class="mrow"><label>Senha ${st.novo ? '' : '(em branco = manter a atual)'}</label><input class="minput" id="perfil-codigo" type="text" value="${esc(st.codigoNovo)}" placeholder="${st.novo ? 'defina uma senha' : '••••••'}" autocomplete="off"></div>
     <div class="perfil-sec">Unidades que este perfil acessa</div>
     <div class="perfil-uchks">${uchecks}</div>
     ${st.unidades.length ? `<div class="perfil-sec">Módulos liberados por unidade <span class="perfil-hint">(marcado = pode ver/mexer)</span></div>${modBlocks}` : '<p class="modview-note">Selecione ao menos uma unidade para escolher os módulos.</p>'}
@@ -606,7 +606,9 @@ async function salvarPerfil() {
   perfilCaptura();
   const st = perfilEdit;
   const nome = (st.nome || '').trim();
-  if (!nome) { alert('Dê um nome ao perfil.'); return; }
+  if (!nome) { alert('Informe o nome de usuário.'); return; }
+  const dup = Object.keys(PERFIS).some(pid => pid !== st.id && ((PERFIS[pid].nome || '').trim().toLowerCase() === nome.toLowerCase()));
+  if (dup) { alert('Já existe um perfil com esse nome de usuário. Escolha outro.'); return; }
   if (!st.unidades.length) { alert('Selecione ao menos uma unidade.'); return; }
   const existing = PERFIS[st.id];
   let codigoHash = existing ? existing.codigo : null;
@@ -4038,7 +4040,10 @@ function showLogin() {
   if (!l) return;
   const inp = document.getElementById('login-code');
   if (inp) inp.value = '';
+  ['login-user', 'login-pass'].forEach(id => { const e = document.getElementById(id); if (e) e.value = ''; });
   document.getElementById('login-err').textContent = '';
+  const pe = document.getElementById('login-perfil-err'); if (pe) pe.textContent = '';
+  setLoginMode('code');
   l.classList.add('show');
   if (!applyLoginLock()) setTimeout(() => { if (inp) inp.focus(); }, 80);
 }
@@ -4059,6 +4064,88 @@ function showUnitWelcome(key) {
     w.classList.add('fade');
     setTimeout(() => { w.classList.remove('show'); w.classList.remove('fade'); }, 450);
   }, 1300);
+}
+function setLoginMode(mode) {
+  const vc = document.getElementById('login-view-code'), vp = document.getElementById('login-view-perfil');
+  if (!vc || !vp) return;
+  if (mode === 'perfil') {
+    vc.style.display = 'none'; vp.style.display = '';
+    const e = document.getElementById('login-err'); if (e) e.textContent = '';
+    setTimeout(() => { const u = document.getElementById('login-user'); if (u) u.focus(); }, 50);
+  } else {
+    vp.style.display = 'none'; vc.style.display = '';
+    const e = document.getElementById('login-perfil-err'); if (e) e.textContent = '';
+    setTimeout(() => { const c = document.getElementById('login-code'); if (c) c.focus(); }, 50);
+  }
+}
+// Entra com um perfil já validado (uma unidade → direto; várias → seleção filtrada).
+function entrarComPerfil(mp) {
+  const unidades = (mp.unidades || []).filter(k => HOTELS.find(h => h.key === k));
+  if (!unidades.length) return { erro: 'Este perfil não tem unidade liberada. Fale com a diretoria.' };
+  localStorage.removeItem('mtnc_login_fails'); localStorage.removeItem('mtnc_login_lock');
+  activeProfile = { nome: mp.nome || 'Perfil', unidades, modulos: mp.modulos || {} };
+  sessionStorage.setItem('mtnc_profile', JSON.stringify(activeProfile));
+  if (unidades.length === 1) {
+    const key = unidades[0];
+    currentHotel = key; localStorage.setItem('currentHotel', key);
+    activeModule = (modulosLiberados(key) || ['dash'])[0] || 'dash';
+    hideLogin();
+    document.getElementById('landing').classList.add('hidden');
+    showUnitWelcome(key);
+    buildHotelSelector();
+    initFirebase(FIREBASE_CFG);
+  } else {
+    hideLogin();
+    buildLanding();
+    document.getElementById('landing').classList.remove('hidden');
+  }
+  return { ok: true };
+}
+async function submitProfileLogin() {
+  const uinp = document.getElementById('login-user');
+  const pinp = document.getElementById('login-pass');
+  const err = document.getElementById('login-perfil-err');
+  const btn = document.getElementById('login-perfil-btn');
+  const user = (uinp.value || '').trim();
+  const pass = (pinp.value || '').trim();
+  if (!user || !pass) { err.textContent = 'Informe usuário e senha.'; return; }
+  if (loginLockRemaining() > 0) { applyLoginLock(); return; }
+  err.textContent = '';
+  btn.disabled = true; btn.textContent = 'Entrando…';
+  try {
+    ensureApp();
+    if (authReady) await authReady;
+    if (firebase.auth && !firebase.auth().currentUser) { err.textContent = 'Não foi possível autenticar. Tente novamente.'; return; }
+    const hash = await sha256(pass);
+    const perfis = (await db.ref('config/perfis').once('value')).val() || {};
+    let mp = null;
+    for (const pid in perfis) {
+      const p = perfis[pid];
+      if (p && p.ativo !== false && (p.nome || '').trim().toLowerCase() === user.toLowerCase() && p.codigo === hash) { mp = p; break; }
+    }
+    if (mp) {
+      const r = entrarComPerfil(mp);
+      if (r.erro) { err.textContent = r.erro; pinp.value = ''; }
+      return;
+    }
+    const fails = (parseInt(localStorage.getItem('mtnc_login_fails') || '0') + 1);
+    localStorage.setItem('mtnc_login_fails', String(fails));
+    pinp.value = '';
+    if (fails >= LOGIN_MAX) {
+      localStorage.setItem('mtnc_login_lock', String(Date.now() + LOGIN_LOCK_MS));
+      localStorage.removeItem('mtnc_login_fails');
+      applyLoginLock();
+    } else {
+      err.textContent = `Usuário ou senha incorretos. Tentativa ${fails} de ${LOGIN_MAX}.`;
+      pinp.focus();
+    }
+  } catch (e) {
+    console.error(e);
+    err.textContent = 'Erro ao validar. Tente novamente.';
+  } finally {
+    btn.textContent = 'Entrar';
+    if (loginLockRemaining() > 0) applyLoginLock(); else btn.disabled = false;
+  }
 }
 async function submitLoginCode() {
   const inp = document.getElementById('login-code');
@@ -4111,33 +4198,6 @@ async function submitLoginCode() {
       showUnitWelcome(foundKey);
       buildHotelSelector();
       initFirebase(FIREBASE_CFG);
-      return;
-    }
-    // Código de perfil → entra com as unidades e módulos liberados desse perfil.
-    const perfisSnap = await db.ref('config/perfis').once('value');
-    const perfis = perfisSnap.val() || {};
-    let mp = null;
-    for (const pid in perfis) { const p = perfis[pid]; if (p && p.ativo !== false && p.codigo && p.codigo === hash) { mp = p; break; } }
-    if (mp) {
-      const unidades = (mp.unidades || []).filter(k => HOTELS.find(h => h.key === k));
-      if (!unidades.length) { err.textContent = 'Este perfil não tem unidade liberada. Fale com a diretoria.'; inp.value = ''; return; }
-      localStorage.removeItem('mtnc_login_fails'); localStorage.removeItem('mtnc_login_lock');
-      activeProfile = { nome: mp.nome || 'Perfil', unidades, modulos: mp.modulos || {} };
-      sessionStorage.setItem('mtnc_profile', JSON.stringify(activeProfile));
-      if (unidades.length === 1) {
-        const key = unidades[0];
-        currentHotel = key; localStorage.setItem('currentHotel', key);
-        activeModule = (modulosLiberados(key) || ['dash'])[0] || 'dash';
-        hideLogin();
-        document.getElementById('landing').classList.add('hidden');
-        showUnitWelcome(key);
-        buildHotelSelector();
-        initFirebase(FIREBASE_CFG);
-      } else {
-        hideLogin();
-        buildLanding();
-        document.getElementById('landing').classList.remove('hidden');
-      }
       return;
     }
     const fails = (parseInt(localStorage.getItem('mtnc_login_fails') || '0') + 1);
