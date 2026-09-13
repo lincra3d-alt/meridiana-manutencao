@@ -41,6 +41,7 @@
 
 <!-- ── LOGIN: Código de acesso (primeira tela) ── -->
 <div id="login-screen" class="pin-screen show">
+  <button class="landing-admin" onclick="openAdminPin()" title="Acesso exclusivo da diretoria">🔐 Área Administrativa</button>
   <div class="pin-box">
     <img class="group-logo-v" src="logos/grupo-vertical.png" alt="Grupo Meridiana" onload="document.getElementById('login-wordmark').style.display='none'" onerror="this.remove()">
     <div id="login-wordmark">
@@ -60,7 +61,6 @@
 
 <!-- ── LANDING: Seleção de Unidade (diretoria / master) ── -->
 <div id="landing" class="hidden">
-  <button class="landing-admin" onclick="openAdminPin()" title="Acesso exclusivo da diretoria">🔐 Área Administrativa</button>
   <img class="group-logo-v landing-logo-v" src="logos/grupo-vertical.png" alt="Grupo Meridiana" onload="document.getElementById('landing-wordmark').style.display='none'" onerror="this.remove()">
   <div id="landing-wordmark">
     <div class="lp-sub">Sistema de Gestão de Manutenção</div>
