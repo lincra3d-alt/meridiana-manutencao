@@ -1,0 +1,672 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+<title>Lançar Emergencial · Manutenção</title>
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@400;600;700&family=Jost:wght@300;400;500;600&display=swap" rel="stylesheet">
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg:#07090f;--s1:#0d1018;--s3:#1a1f2d;--s4:#21273a;
+  --border:rgba(255,255,255,.055);--border2:rgba(255,255,255,.11);
+  --gold:#c49a3c;--gold2:#ddb84e;
+  --text:#e8e9ec;--muted:#7a8094;--muted2:#9ba0b0;
+  --danger:#e5484d;--ok:#2ea043;
+}
+body{font-family:'Jost',sans-serif;background:linear-gradient(135deg,#07090f 0%,#0d1018 100%);color:var(--text);min-height:100vh;display:flex;align-items:flex-start;justify-content:center;padding:24px 16px;font-size:13px}
+.card{width:100%;max-width:440px;background:var(--s1);border:1px solid var(--border);border-radius:14px;padding:24px;box-shadow:0 20px 60px rgba(0,0,0,.5)}
+h1{font-family:'Cormorant Garamond',serif;font-weight:600;font-size:24px;color:var(--gold2);margin-bottom:4px;display:flex;align-items:center;gap:10px}
+.subtitle{font-size:11px;color:var(--muted);margin-bottom:20px;letter-spacing:.5px}
+.badge-emrg{display:inline-flex;align-items:center;gap:6px;background:rgba(229,72,77,.13);border:1px solid rgba(229,72,77,.35);color:#ff7a7e;padding:7px 13px;border-radius:8px;font-size:12px;font-weight:500;margin-bottom:18px}
+.field{margin-bottom:14px}
+label{display:block;font-size:10px;letter-spacing:1.2px;color:var(--muted);text-transform:uppercase;font-weight:500;margin-bottom:6px}
+input,select,textarea{width:100%;background:var(--s4);border:1px solid var(--border);border-radius:8px;padding:10px 12px;color:var(--text);font-family:inherit;font-size:13px;outline:none;transition:border-color .15s}
+input:focus,select:focus,textarea:focus{border-color:var(--gold)}
+textarea{resize:vertical;min-height:80px;font-family:inherit;line-height:1.5}
+.req{color:var(--danger)}
+.btn{width:100%;background:linear-gradient(135deg,var(--gold) 0%,#a87f2a 100%);color:#1a1408;border:none;border-radius:8px;padding:13px;font-family:inherit;font-size:14px;font-weight:600;cursor:pointer;letter-spacing:.5px;margin-top:6px;transition:transform .1s,opacity .15s}
+.btn:hover{transform:translateY(-1px)}
+.btn:disabled{opacity:.5;cursor:not-allowed}
+.msg{margin-top:14px;padding:12px;border-radius:8px;font-size:12px;line-height:1.5;display:none}
+.msg.show{display:block}
+.msg.ok{background:rgba(46,160,67,.13);border:1px solid rgba(46,160,67,.35);color:#7ee787}
+.msg.err{background:rgba(229,72,77,.13);border:1px solid rgba(229,72,77,.35);color:#ff7a7e}
+.footer-note{margin-top:18px;padding-top:14px;border-top:1px solid var(--border);font-size:10.5px;color:var(--muted);text-align:center;line-height:1.6}
+.loader{display:inline-block;width:14px;height:14px;border:2px solid rgba(255,255,255,.3);border-top-color:#1a1408;border-radius:50%;animation:spin .7s linear infinite;vertical-align:middle;margin-right:8px}
+@keyframes spin{to{transform:rotate(360deg)}}
+#mode-tabs{display:flex}
+.modetab{flex:1;background:var(--s4);border:1px solid var(--border2);color:var(--muted2);padding:9px;border-radius:8px;font-family:inherit;font-size:12.5px;font-weight:600;cursor:pointer;transition:all .15s}
+.modetab.active{background:rgba(196,154,60,.16);border-color:rgba(196,154,60,.5);color:var(--gold2)}
+.trip-item{display:block;width:100%;text-align:left;background:var(--s4);border:1px solid var(--border2);border-radius:8px;padding:10px 12px;margin-bottom:8px;color:var(--text);font-family:inherit;font-size:12.5px;cursor:pointer;transition:all .15s;line-height:1.6}
+.trip-item:hover{border-color:var(--gold)}
+.trip-item.sel{border-color:var(--gold);background:rgba(196,154,60,.13)}
+.trip-num{font-weight:700;color:var(--gold2)}
+.locked-info{background:var(--s4);border:1px solid var(--border);border-radius:8px;padding:11px 13px;font-size:12px;line-height:1.8;color:var(--muted2);margin-bottom:14px}
+.locked-info b{color:var(--text)}
+</style>
+</head>
+<body>
+
+<div class="card">
+  <h1>⚡ Novo Emergencial</h1>
+  <div class="subtitle">Reportar serviço emergencial</div>
+
+  <div id="mode-tabs" style="display:none;gap:6px;margin-bottom:16px">
+    <button class="modetab active" id="tab-open" onclick="setMode('open')">Abrir</button>
+    <button class="modetab" id="tab-abast" onclick="setMode('abast')">Abastecimento</button>
+    <button class="modetab" id="tab-fim" onclick="setMode('fim')">Finalizar</button>
+  </div>
+
+  <div id="open-view">
+  <div style="display:flex;gap:8px;margin-bottom:18px;flex-wrap:wrap">
+    <span class="badge-emrg">⚡ Emergencial</span>
+    <span class="badge-emrg" style="background:rgba(196,154,60,.13);border-color:rgba(196,154,60,.4);color:var(--gold2)" id="hotel-badge">🏨 —</span>
+  </div>
+
+  <div class="field">
+    <label>Quarto / Área <span class="req">*</span></label>
+    <input id="f-area" placeholder="ex: UH15, COZINHA, PISCINA…" autocomplete="off">
+  </div>
+
+  <div class="field">
+    <label>Serviço <span class="req">*</span></label>
+    <select id="f-serv"></select>
+  </div>
+
+  <div class="field">
+    <label>Descrição <span class="req">*</span></label>
+    <textarea id="f-desc" placeholder="Descreva o serviço..."></textarea>
+  </div>
+
+  <div class="field">
+    <label>Prioridade</label>
+    <select id="f-prio">
+      <option value="ALTA">🔴 Alta</option>
+      <option value="MEDIA" selected>🟠 Média</option>
+      <option value="BAIXA">🔵 Baixa</option>
+    </select>
+  </div>
+
+  <div class="field">
+    <label>Reportado por / Funcionários</label>
+    <input id="f-func" placeholder="ex: ANDRE, EDINHO…" autocomplete="off">
+  </div>
+
+  <div class="field">
+    <label>Data Identificado</label>
+    <input id="f-dtid" type="date">
+  </div>
+
+  <div class="field">
+    <label>Data Início</label>
+    <input id="f-ini" type="date">
+  </div>
+
+  <div class="field" id="field-kmini" style="display:none">
+    <label>KM Inicial</label>
+    <input id="f-kmini" type="number" inputmode="numeric" placeholder="ex: 45120">
+  </div>
+
+  <div class="field" id="field-pax" style="display:none">
+    <label>Quantidade de Passageiros</label>
+    <input id="f-pax" type="number" inputmode="numeric" placeholder="ex: 3">
+  </div>
+
+  <div class="field" id="field-abast" style="display:none">
+    <label>Abastecimento</label>
+    <input id="f-abast" placeholder="ex: tanque cheio, R$100, 30L…">
+  </div>
+
+  <div class="field" id="field-fim" style="display:none">
+    <label>Prazo / Data Fim</label>
+    <input id="f-fim" type="date">
+  </div>
+
+  <button class="btn" id="btn-send" onclick="enviar()">Enviar</button>
+
+  <div class="msg" id="msg"></div>
+  </div>
+
+  <div id="fim-view" style="display:none">
+    <div class="field">
+      <label>Carro <span class="req">*</span></label>
+      <select id="fim-car" onchange="onFimCarChange()"><option value="">Selecione o carro…</option></select>
+    </div>
+    <div class="field">
+      <label>Viagens em aberto</label>
+      <div id="fim-trips"></div>
+    </div>
+    <div id="fim-detail" style="display:none">
+      <div class="locked-info" id="fim-locked"></div>
+      <div class="field">
+        <label>Código da viagem <span class="req">*</span></label>
+        <input id="fim-codigo" inputmode="numeric" placeholder="código de 4 dígitos" autocomplete="off">
+      </div>
+      <div class="field">
+        <label>KM Final <span class="req">*</span></label>
+        <input id="fim-kmfinal" type="number" inputmode="numeric" placeholder="ex: 45380">
+      </div>
+      <button class="btn" id="fim-btn" onclick="finalizarViagem()">Finalizar viagem</button>
+      <div class="msg" id="fim-msg"></div>
+    </div>
+  </div>
+
+  <div id="abast-view" style="display:none">
+    <div class="field">
+      <label>Carro <span class="req">*</span></label>
+      <select id="ab-car" onchange="onAbCarChange()"><option value="">Selecione o carro…</option></select>
+    </div>
+    <div class="field">
+      <label>Viagens em aberto</label>
+      <div id="ab-trips"></div>
+    </div>
+    <div id="ab-detail" style="display:none">
+      <div class="locked-info" id="ab-locked"></div>
+      <div class="field">
+        <label>Litros <span class="req">*</span></label>
+        <input id="ab-litros" type="number" inputmode="decimal" step="0.01" placeholder="ex: 32,5" autocomplete="off">
+      </div>
+      <div class="field">
+        <label>Valor (R$) <span class="req">*</span></label>
+        <input id="ab-valor" type="number" inputmode="decimal" step="0.01" placeholder="ex: 180,00" autocomplete="off">
+      </div>
+      <div class="field">
+        <label>Posto / Observação</label>
+        <input id="ab-abast" placeholder="ex: Posto Ipiranga, tanque cheio…" autocomplete="off">
+      </div>
+      <button class="btn" id="ab-btn" onclick="salvarAbast()">Salvar abastecimento</button>
+      <div class="msg" id="ab-msg"></div>
+    </div>
+  </div>
+
+  <div class="footer-note">
+    Após o envio, apenas a supervisão pode alterar ou excluir o registro.
+  </div>
+</div>
+
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
+<script>
+const FIREBASE_CFG = {
+  apiKey: "AIzaSyD5iD_RrPkfSW4_cgMbysEFKDpDh5_4i80",
+  authDomain: "hotel-manutencao.firebaseapp.com",
+  databaseURL: "https://hotel-manutencao-default-rtdb.firebaseio.com",
+  projectId: "hotel-manutencao",
+  storageBucket: "hotel-manutencao.firebasestorage.app",
+  messagingSenderId: "368535658005",
+  appId: "1:368535658005:web:5759f188a29710f7db781c"
+};
+const DEFAULT_SERVICOS = ['REPAROS','LIMPEZA','AR','LAMPADA','TV','PINTURA','INSTALAÇÃO','VIDROS','OBRA','ELETRICA','REFRIGEREÇÃO','CHUVEIRO','REFORMA','MANUTENÇÃO','TELEFONE','JARDIM'];
+const CARROS_SERVICOS = ['REVISÃO','TROCA DE ÓLEO','PNEUS','FREIOS','SUSPENSÃO','ALINHAMENTO','FUNILARIA','PINTURA','ELÉTRICA','AR CONDICIONADO','BATERIA','MECÂNICA','LAVAGEM','VIDROS','ABASTECIMENTO','LICENCIAMENTO','SEGURO','MULTAS'];
+const MONTHS_PT = ['Jan','Fev','Mar','Abr','Mai','Jun','Jul','Ago','Set','Out','Nov','Dez'];
+const HOTELS = {
+  'costa_sol':       { name: 'Costa do Sol',    path: 'hotel_manutencao' },
+  'brava_club':      { name: 'Brava Club',      path: 'hotels/brava_club' },
+  'brava_exclusive': { name: 'Brava Exclusive', path: 'hotels/brava_exclusive' },
+  'vila_pitanga':    { name: 'Vila Pitanga',    path: 'hotels/vila_pitanga' },
+  'maria_maria':     { name: 'Maria Maria',     path: 'hotels/maria_maria' },
+  'carros':          { name: 'Carros',          path: 'hotels/carros', emrgOne: 'Viagem', icon: '🚗' },
+};
+const params = new URLSearchParams(window.location.search);
+const hotelKey = HOTELS[params.get('h')] ? params.get('h') : 'costa_sol';
+const HOTEL = HOTELS[hotelKey];
+const TIPO = params.get('t') === 'plan' ? 'PLANEJADO' : 'EMERGENCIAL';
+const isPlan = TIPO === 'PLANEJADO';
+
+firebase.initializeApp(FIREBASE_CFG);
+const db = firebase.database();
+const authReady = firebase.auth().signInAnonymously().catch(e => console.error('Falha no login anônimo:', e));
+
+let headIcon, headLabel;
+if (hotelKey === 'carros') {
+  headIcon  = isPlan ? '🔧' : '🚗';
+  headLabel = isPlan ? 'Serviço' : 'Viagem';
+} else {
+  headIcon  = isPlan ? '📋' : '⚡';
+  headLabel = isPlan ? 'Serviço Planejado' : 'Emergencial';
+}
+document.title = `Lançar ${headLabel} · ${HOTEL.name}`;
+document.querySelector('h1').innerHTML = `${headIcon} Novo ${headLabel}`;
+document.querySelector('.subtitle').textContent = `Reportar ${headLabel.toLowerCase()}`;
+document.querySelector('.badge-emrg').textContent = `${headIcon} ${headLabel}`;
+document.getElementById('hotel-badge').textContent = `🏨 ${HOTEL.name}`;
+
+function genId() { return 'r' + Date.now().toString(36) + Math.random().toString(36).slice(2, 8); }
+
+function showMsg(text, type) {
+  const el = document.getElementById('msg');
+  el.textContent = text;
+  el.className = 'msg show ' + type;
+}
+function clearMsg() { document.getElementById('msg').className = 'msg'; }
+
+document.getElementById('f-dtid').value = new Date().toISOString().split('T')[0];
+
+const VIAGEM_DESTINOS = ['PRAIA DOS OSSOS','PRAIA DA FERRADURA','PRAIA','JOÃO FERNANDES','CENTRO','COMPRAS'];
+const CARROS_VEICULOS  = ['PARTNER','SPRINTER','Q7','RANGER','BMW'];
+const CARROS_GERADORES = ['GERADOR BC','GERADOR CS'];
+function nowHM() { const d = new Date(); return String(d.getHours()).padStart(2,'0') + ':' + String(d.getMinutes()).padStart(2,'0'); }
+let VEH_ALL = [...CARROS_VEICULOS];
+let GER_ALL = [...CARROS_GERADORES];
+const fixedCar = (params.get('car') || '').trim().toUpperCase();
+
+function rebuildArea(current) {
+  const aSel = document.getElementById('f-area');
+  if (!aSel || aSel.tagName !== 'SELECT') return;
+  const list = isPlan ? [...VEH_ALL, ...GER_ALL] : VEH_ALL;
+  aSel.innerHTML = list.map(v => `<option value="${v}">${v}</option>`).join('') + `<option value="__ADD__">➕ Adicionar (admin)…</option>`;
+  if (current && list.includes(current)) aSel.value = current;
+}
+function fillCarSelects() {
+  const opts = `<option value="">Selecione o carro…</option>` + VEH_ALL.map(v => `<option value="${v}">${v}</option>`).join('');
+  const fc = document.getElementById('fim-car'); if (fc) fc.innerHTML = opts;
+  const ac = document.getElementById('ab-car'); if (ac) ac.innerHTML = opts;
+}
+
+let servBase, servNode, servLabel;
+if (hotelKey === 'carros') {
+  if (isPlan) { servBase = CARROS_SERVICOS; servNode = 'servicos'; servLabel = 'Serviço'; }
+  else        { servBase = VIAGEM_DESTINOS; servNode = 'destinos'; servLabel = 'Destino'; }
+  const fa = document.getElementById('f-area');
+  if (fa.previousElementSibling) fa.previousElementSibling.firstChild.textContent = (isPlan ? 'Automotor ' : 'Carro ');
+  const aSel = document.createElement('select');
+  aSel.id = 'f-area';
+  aSel.addEventListener('change', onAreaChange);
+  fa.replaceWith(aSel);
+  authReady.then(() => Promise.all([
+    db.ref(`${HOTEL.path}/veiculos`).once('value'),
+    db.ref(`${HOTEL.path}/geradores`).once('value')
+  ])).then(([vs, gs]) => {
+    VEH_ALL = [...new Set([...CARROS_VEICULOS, ...(Array.isArray(vs.val()) ? vs.val() : [])])];
+    GER_ALL = [...new Set([...CARROS_GERADORES, ...(Array.isArray(gs.val()) ? gs.val() : [])])];
+    rebuildArea(fixedCar || null);
+    fillCarSelects();
+    if (!isPlan && fixedCar && VEH_ALL.includes(fixedCar)) {
+      aSel.value = fixedCar; aSel.disabled = true;
+      const fc = document.getElementById('fim-car'); if (fc) fc.value = fixedCar;
+      const ac = document.getElementById('ab-car'); if (ac) ac.value = fixedCar;
+      prefillKm(fixedCar);
+    }
+  }).catch(() => { rebuildArea(); });
+  if (!isPlan) {
+    ['field-kmini','field-pax'].forEach(id => { const e = document.getElementById(id); if (e) e.style.display = ''; });
+    const fl = document.getElementById('f-func').previousElementSibling;
+    if (fl) fl.textContent = 'Motorista';
+    const dl = document.getElementById('f-dtid').previousElementSibling;
+    if (dl) dl.textContent = 'Data da Viagem';
+    const iniField = document.getElementById('f-ini').parentElement;
+    if (iniField) iniField.style.display = 'none';
+    const prioField = document.getElementById('f-prio').parentElement;
+    if (prioField) prioField.style.display = 'none';
+    document.getElementById('mode-tabs').style.display = 'flex';
+  }
+} else {
+  servBase = DEFAULT_SERVICOS; servNode = 'servicos'; servLabel = 'Serviço';
+}
+
+if (isPlan) document.getElementById('field-fim').style.display = '';
+const ssLbl = document.getElementById('f-serv').previousElementSibling;
+if (ssLbl) ssLbl.firstChild.textContent = servLabel + ' ';
+
+const isViagemForm = (hotelKey === 'carros' && !isPlan);
+let SERV_ALL = [...servBase];
+function fillServ(selected) {
+  const sel = document.getElementById('f-serv');
+  let html = SERV_ALL.map(s => `<option value="${s}">${s}</option>`).join('');
+  if (hotelKey === 'carros') html += `<option value="__ADD__">➕ Adicionar (admin)…</option>`;
+  sel.innerHTML = html;
+  sel.value = (selected && SERV_ALL.includes(selected)) ? selected : (SERV_ALL.includes('REPAROS') ? 'REPAROS' : SERV_ALL[0]);
+}
+document.getElementById('f-serv').addEventListener('change', onServChange);
+authReady.then(() => db.ref(`${HOTEL.path}/${servNode}`).once('value')).then(snap => {
+  const custom = Array.isArray(snap.val()) ? snap.val() : [];
+  SERV_ALL = [...new Set([...servBase, ...custom])];
+  fillServ();
+}).catch(() => { SERV_ALL = [...servBase]; fillServ(); });
+
+function currentMonthName() {
+  const d = new Date();
+  return `${MONTHS_PT[d.getMonth()]} ${d.getFullYear()}`;
+}
+
+async function enviar() {
+  clearMsg();
+  await authReady;
+  const area = document.getElementById('f-area').value.trim();
+  const desc = document.getElementById('f-desc').value.trim();
+  const serv = document.getElementById('f-serv').value;
+
+  if (!area) { showMsg('⚠ Selecione o carro / preencha a área.', 'err'); return; }
+  if (!desc && !(hotelKey === 'carros' && !isPlan)) { showMsg('⚠ Descreva o serviço.', 'err'); return; }
+
+  const btn = document.getElementById('btn-send');
+  btn.disabled = true;
+  btn.innerHTML = '<span class="loader"></span>Enviando...';
+
+  try {
+    const snap = await db.ref(HOTEL.path).once('value');
+    const val = snap.val() || {};
+    let months = Array.isArray(val.months) ? [...val.months] : [];
+    let data   = Array.isArray(val.data)   ? val.data.map(m => Array.isArray(m) ? [...m] : []) : [];
+
+    let targetIdx;
+    const curName = currentMonthName();
+    const existing = months.indexOf(curName);
+    if (existing >= 0) {
+      targetIdx = existing;
+    } else if (months.length > 0) {
+      targetIdx = months.length - 1;
+    } else {
+      months = [curName];
+      data = [[]];
+      targetIdx = 0;
+    }
+    while (data.length <= targetIdx) data.push([]);
+
+    const isViagem = hotelKey === 'carros' && !isPlan;
+    if (isViagem) {
+      let aberta = null;
+      data.forEach(m => (m || []).forEach(rr => {
+        if (rr.tipo === 'EMERGENCIAL' && rr.area === area && !(rr.kmFim === 0 || rr.kmFim)) aberta = rr;
+      }));
+      if (aberta) {
+        showMsg(`⚠ O carro ${area} já tem a Viagem ${String(aberta.num || 0).padStart(3,'0')} em aberto. Finalize-a (informe o KM final) antes de abrir outra.`, 'err');
+        return;
+      }
+    }
+    let viagemNum = null, viagemCod = null;
+    if (isViagem) {
+      let maxN = 0;
+      data.forEach(m => (m || []).forEach(rr => { if (rr.tipo === 'EMERGENCIAL' && typeof rr.num === 'number' && rr.num > maxN) maxN = rr.num; }));
+      viagemNum = maxN + 1;
+      viagemCod = String(1000 + Math.floor(Math.random() * 9000));
+    }
+
+    const novo = {
+      id: genId(),
+      tipo: TIPO,
+      prio: document.getElementById('f-prio').value,
+      area,
+      serv,
+      desc,
+      stat: isViagem ? 'ANDAMENTO' : 'INDENTIFICADO',
+      func: document.getElementById('f-func').value.trim(),
+      dtid: document.getElementById('f-dtid').value,
+      ini:  (hotelKey === 'carros' && !isPlan) ? document.getElementById('f-dtid').value : document.getElementById('f-ini').value,
+      fim:  isPlan ? document.getElementById('f-fim').value : '',
+      origem: 'form-publico',
+      pendente: true,
+      ts: Date.now()
+    };
+    if (isViagem) {
+      novo.num = viagemNum;
+      novo.codigo = viagemCod;
+      novo.kmIni = document.getElementById('f-kmini').value;
+      novo.kmFim = '';
+      novo.pax = document.getElementById('f-pax').value;
+      novo.abast = '';
+      novo.hIni = nowHM();
+    }
+
+    data[targetIdx].unshift(novo);
+
+    await db.ref(HOTEL.path).update({ months, data });
+
+    if (isViagem) {
+      const msgEl = document.getElementById('msg');
+      msgEl.className = 'msg show ok';
+      msgEl.innerHTML = `✓ <b>Viagem ${String(viagemNum).padStart(3,'0')}</b> aberta!<br>Código para finalizar: <b style="font-size:17px;letter-spacing:3px">${viagemCod}</b><br><span style="color:var(--muted)">Guarde este código. Você vai precisar dele para informar o KM final ao voltar.</span>`;
+    } else {
+      showMsg('✓ Enviado com sucesso! O registro foi lançado.', 'ok');
+    }
+    const areaEl = document.getElementById('f-area');
+    if (areaEl.tagName === 'SELECT') areaEl.selectedIndex = 0; else areaEl.value = '';
+    document.getElementById('f-desc').value = '';
+    document.getElementById('f-func').value = '';
+    document.getElementById('f-ini').value = '';
+    if (document.getElementById('f-fim')) document.getElementById('f-fim').value = '';
+    document.getElementById('f-prio').value = 'MEDIA';
+    document.getElementById('f-serv').selectedIndex = 0;
+    ['f-kmini','f-pax','f-abast'].forEach(id => { const e = document.getElementById(id); if (e) e.value = ''; });
+    document.getElementById('f-dtid').value = new Date().toISOString().split('T')[0];
+  } catch (e) {
+    console.error(e);
+    showMsg('❌ Erro ao enviar. Verifique a conexão e tente novamente.', 'err');
+  } finally {
+    btn.disabled = false;
+    btn.textContent = 'Enviar';
+  }
+}
+
+// ── ADICIONAR DESTINO (somente admin / senha master) ──
+async function sha256(str) {
+  const b = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(str));
+  return [...new Uint8Array(b)].map(x => x.toString(16).padStart(2, '0')).join('');
+}
+async function onServChange() {
+  const sel = document.getElementById('f-serv');
+  if (sel.value !== '__ADD__') return;
+  sel.selectedIndex = 0;
+  const isDest = !isPlan;
+  const node = isDest ? 'destinos' : 'servicos';
+  const base = isDest ? VIAGEM_DESTINOS : CARROS_SERVICOS;
+  const nome = (prompt(isDest ? 'Novo destino:' : 'Novo serviço:') || '').trim().toUpperCase().normalize('NFC');
+  if (!nome) return;
+  const senha = (prompt('Senha master (admin) para adicionar:') || '').trim();
+  if (!senha) return;
+  try {
+    await authReady;
+    const ms = await db.ref('config/masterPin').once('value');
+    if (!ms.val() || (await sha256(senha)) !== ms.val()) { alert('Senha master incorreta.'); return; }
+    const snap = await db.ref(`${HOTEL.path}/${node}`).once('value');
+    const cur = Array.isArray(snap.val()) ? snap.val() : [];
+    if (!cur.includes(nome) && !base.includes(nome)) {
+      cur.push(nome);
+      await db.ref(`${HOTEL.path}/${node}`).set(cur);
+    }
+    if (!SERV_ALL.includes(nome)) SERV_ALL.push(nome);
+    fillServ(nome);
+    alert('"' + nome + '" adicionado.');
+  } catch (e) { console.error(e); alert('Erro ao adicionar. Tente novamente.'); }
+}
+
+// ── FINALIZAÇÃO DE VIAGEM ──
+let fimTrips = [], fimSel = null;
+
+function setMode(m) {
+  document.getElementById('open-view').style.display = m === 'open' ? '' : 'none';
+  document.getElementById('abast-view').style.display = m === 'abast' ? '' : 'none';
+  document.getElementById('fim-view').style.display = m === 'fim' ? '' : 'none';
+  document.getElementById('tab-open').classList.toggle('active', m === 'open');
+  document.getElementById('tab-abast').classList.toggle('active', m === 'abast');
+  document.getElementById('tab-fim').classList.toggle('active', m === 'fim');
+  if (m === 'fim' && document.getElementById('fim-car').value) onFimCarChange();
+  if (m === 'abast' && document.getElementById('ab-car').value) onAbCarChange();
+}
+
+async function onAreaChange() {
+  const aSel = document.getElementById('f-area');
+  if (aSel.value === '__ADD__') {
+    aSel.selectedIndex = 0;
+    const nome = (prompt('Novo veículo:') || '').trim().toUpperCase().normalize('NFC');
+    if (!nome) return;
+    const senha = (prompt('Senha master (admin):') || '').trim();
+    if (!senha) return;
+    await authReady;
+    const ms = await db.ref('config/masterPin').once('value');
+    if (!ms.val() || (await sha256(senha)) !== ms.val()) { alert('Senha master incorreta.'); return; }
+    const snap = await db.ref(`${HOTEL.path}/veiculos`).once('value');
+    const cur = Array.isArray(snap.val()) ? snap.val() : [];
+    if (!cur.includes(nome) && !CARROS_VEICULOS.includes(nome)) { cur.push(nome); await db.ref(`${HOTEL.path}/veiculos`).set(cur); }
+    if (!VEH_ALL.includes(nome)) VEH_ALL.push(nome);
+    rebuildArea(nome);
+    fillCarSelects();
+    if (!isPlan) prefillKm(nome);
+    return;
+  }
+  if (!isPlan) prefillKm(aSel.value);
+}
+
+async function prefillKm(car) {
+  if (!car || car === '__ADD__') return;
+  try {
+    await authReady;
+    const snap = await db.ref(HOTEL.path).once('value');
+    const val = snap.val() || {};
+    const data = Array.isArray(val.data) ? val.data : [];
+    let best = null, bestTs = -1;
+    data.forEach(m => (m || []).forEach(r => {
+      if (r.tipo === 'EMERGENCIAL' && r.area === car && (r.kmFim === 0 || r.kmFim)) {
+        const ts = r.ts || 0;
+        if (ts >= bestTs) { bestTs = ts; best = r; }
+      }
+    }));
+    const f = document.getElementById('f-kmini');
+    if (f && best && best.kmFim) f.value = best.kmFim;
+  } catch (e) { console.error(e); }
+}
+
+// ── ABASTECIMENTO (etapa intermediária) ──
+let abTrips = [], abSel = null;
+async function onAbCarChange() {
+  const car = document.getElementById('ab-car').value;
+  const list = document.getElementById('ab-trips');
+  document.getElementById('ab-detail').style.display = 'none';
+  abSel = null;
+  if (!car) { list.innerHTML = ''; return; }
+  list.innerHTML = '<div style="color:var(--muted);font-size:12px">Consultando…</div>';
+  try {
+    await authReady;
+    const snap = await db.ref(HOTEL.path).once('value');
+    const val = snap.val() || {};
+    const data = Array.isArray(val.data) ? val.data : [];
+    abTrips = [];
+    data.forEach(m => (m || []).forEach(r => { if (r.tipo === 'EMERGENCIAL' && r.area === car && !(r.kmFim === 0 || r.kmFim)) abTrips.push(r); }));
+    abTrips.sort((a, b) => (b.num || 0) - (a.num || 0));
+    if (!abTrips.length) { list.innerHTML = `<div style="color:var(--muted);font-size:12px">Nenhuma viagem em aberto para ${car}.</div>`; return; }
+    list.innerHTML = abTrips.map((r, i) =>
+      `<button class="trip-item" onclick="selAbTrip(${i})"><span class="trip-num">Viagem ${String(r.num || 0).padStart(3,'0')}</span> · ${r.func || 'sem motorista'}<br>${r.serv || ''} · ${(r.abLitros || r.abValor) ? ((r.abLitros ? r.abLitros + ' L' : '') + (r.abValor ? ' · R$ ' + r.abValor : '')) : 'sem abastecimento'}</button>`
+    ).join('');
+  } catch (e) { console.error(e); list.innerHTML = '<div style="color:#ff7a7e;font-size:12px">Erro ao consultar.</div>'; }
+}
+function selAbTrip(i) {
+  abSel = abTrips[i];
+  document.querySelectorAll('#ab-trips .trip-item').forEach((b, bi) => b.classList.toggle('sel', bi === i));
+  document.getElementById('ab-detail').style.display = '';
+  document.getElementById('ab-locked').innerHTML =
+    `<b>Viagem ${String(abSel.num || 0).padStart(3,'0')}</b><br>Carro: <b>${abSel.area || '—'}</b><br>Motorista: <b>${abSel.func || '—'}</b><br>Destino: <b>${abSel.serv || '—'}</b>`;
+  document.getElementById('ab-litros').value = abSel.abLitros || '';
+  document.getElementById('ab-valor').value = abSel.abValor || '';
+  document.getElementById('ab-abast').value = abSel.abast || '';
+  document.getElementById('ab-msg').className = 'msg';
+}
+async function salvarAbast() {
+  const m = document.getElementById('ab-msg');
+  const setM = (t, c) => { m.textContent = t; m.className = 'msg show ' + c; };
+  if (!abSel) { setM('Selecione a viagem.', 'err'); return; }
+  const litros = document.getElementById('ab-litros').value.trim();
+  const valor  = document.getElementById('ab-valor').value.trim();
+  const ab     = document.getElementById('ab-abast').value.trim();
+  if (!litros || !valor) { setM('Informe os litros e o valor.', 'err'); return; }
+  const btn = document.getElementById('ab-btn');
+  btn.disabled = true; btn.innerHTML = '<span class="loader"></span>Salvando...';
+  try {
+    await authReady;
+    const snap = await db.ref(HOTEL.path).once('value');
+    const val = snap.val() || {};
+    const data = Array.isArray(val.data) ? val.data.map(x => Array.isArray(x) ? [...x] : []) : [];
+    let found = false;
+    data.forEach(x => x.forEach(r => { if (r.id === abSel.id) { r.abLitros = litros; r.abValor = valor; r.abast = ab; found = true; } }));
+    if (!found) { setM('Viagem não encontrada.', 'err'); btn.disabled = false; btn.textContent = 'Salvar abastecimento'; return; }
+    await db.ref(HOTEL.path).update({ data });
+    setM('✓ Abastecimento salvo.', 'ok');
+    document.getElementById('ab-detail').style.display = 'none';
+    onAbCarChange();
+  } catch (e) { console.error(e); setM('Erro ao salvar.', 'err'); }
+  finally { btn.disabled = false; btn.textContent = 'Salvar abastecimento'; }
+}
+
+function fmtBRsub(s) {
+  if (!s) return '';
+  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(s);
+  return m ? `${m[3]}/${m[2]}/${m[1]}` : s;
+}
+
+async function onFimCarChange() {
+  const car  = document.getElementById('fim-car').value;
+  const list = document.getElementById('fim-trips');
+  document.getElementById('fim-detail').style.display = 'none';
+  fimSel = null;
+  if (!car) { list.innerHTML = ''; return; }
+  list.innerHTML = '<div style="color:var(--muted);font-size:12px">Consultando…</div>';
+  try {
+    await authReady;
+    const snap = await db.ref(HOTEL.path).once('value');
+    const val = snap.val() || {};
+    const data = Array.isArray(val.data) ? val.data : [];
+    fimTrips = [];
+    data.forEach(m => (m || []).forEach(r => {
+      if (r.tipo === 'EMERGENCIAL' && r.area === car && !(r.kmFim === 0 || r.kmFim)) fimTrips.push(r);
+    }));
+    fimTrips.sort((a, b) => (b.num || 0) - (a.num || 0));
+    if (!fimTrips.length) { list.innerHTML = `<div style="color:var(--muted);font-size:12px">Nenhuma viagem em aberto para ${car}.</div>`; return; }
+    list.innerHTML = fimTrips.map((r, i) =>
+      `<button class="trip-item" onclick="selFimTrip(${i})"><span class="trip-num">Viagem ${String(r.num || 0).padStart(3,'0')}</span> · ${r.func || 'sem motorista'}<br>${r.serv || ''} · KM ini ${r.kmIni || '—'} · ${fmtBRsub(r.ini || r.dtid)}</button>`
+    ).join('');
+  } catch (e) {
+    console.error(e);
+    list.innerHTML = '<div style="color:#ff7a7e;font-size:12px">Erro ao consultar. Tente novamente.</div>';
+  }
+}
+
+function selFimTrip(i) {
+  fimSel = fimTrips[i];
+  document.querySelectorAll('#fim-trips .trip-item').forEach((b, bi) => b.classList.toggle('sel', bi === i));
+  document.getElementById('fim-detail').style.display = '';
+  document.getElementById('fim-locked').innerHTML =
+    `<b>Viagem ${String(fimSel.num || 0).padStart(3,'0')}</b><br>Carro: <b>${fimSel.area || '—'}</b><br>Motorista: <b>${fimSel.func || '—'}</b><br>Destino: <b>${fimSel.serv || '—'}</b><br>KM inicial: <b>${fimSel.kmIni || '—'}</b>`;
+  document.getElementById('fim-codigo').value = '';
+  document.getElementById('fim-kmfinal').value = '';
+  document.getElementById('fim-msg').className = 'msg';
+}
+
+async function finalizarViagem() {
+  const fmsg = document.getElementById('fim-msg');
+  const setM = (t, c) => { fmsg.textContent = t; fmsg.className = 'msg show ' + c; };
+  if (!fimSel) { setM('Selecione a viagem.', 'err'); return; }
+  const cod = document.getElementById('fim-codigo').value.trim();
+  const kmf = document.getElementById('fim-kmfinal').value.trim();
+  if (cod !== String(fimSel.codigo || '')) { setM('Código incorreto.', 'err'); return; }
+  const kf = parseFloat(kmf), ki = parseFloat(fimSel.kmIni);
+  if (!isFinite(kf)) { setM('Informe o KM final.', 'err'); return; }
+  if (isFinite(ki) && kf < ki) { setM(`KM final não pode ser menor que o KM inicial (${fimSel.kmIni}).`, 'err'); return; }
+  const btn = document.getElementById('fim-btn');
+  btn.disabled = true; btn.innerHTML = '<span class="loader"></span>Salvando...';
+  try {
+    await authReady;
+    const snap = await db.ref(HOTEL.path).once('value');
+    const val = snap.val() || {};
+    const data = Array.isArray(val.data) ? val.data.map(m => Array.isArray(m) ? [...m] : []) : [];
+    let found = false;
+    data.forEach(m => m.forEach(r => { if (r.id === fimSel.id) { r.kmFim = kmf; r.stat = 'CONCLUIDO'; r.hFim = nowHM(); found = true; } }));
+    if (!found) { setM('Viagem não encontrada (pode já ter sido finalizada).', 'err'); btn.disabled = false; btn.textContent = 'Finalizar viagem'; return; }
+    await db.ref(HOTEL.path).update({ data });
+    setM(`✓ Viagem ${String(fimSel.num || 0).padStart(3,'0')} finalizada! KM final ${kmf}.`, 'ok');
+    document.getElementById('fim-detail').style.display = 'none';
+    onFimCarChange();
+  } catch (e) {
+    console.error(e);
+    setM('Erro ao salvar. Tente novamente.', 'err');
+  } finally {
+    btn.disabled = false; btn.textContent = 'Finalizar viagem';
+  }
+}
+
+document.addEventListener('keydown', e => {
+  if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) enviar();
+});
+</script>
+</body>
+</html>

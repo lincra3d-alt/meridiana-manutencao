@@ -1,0 +1,661 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Gestão de Manutenção · Hotel</title>
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@400;600;700&family=Jost:wght@300;400;500;600&display=swap" rel="stylesheet">
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg:#07090f;--s1:#0d1018;--s3:#1a1f2d;--s4:#21273a;
+  --border:rgba(255,255,255,0.055);--border2:rgba(255,255,255,0.11);
+  --gold:#c49a3c;--gold2:#ddb84e;--gold3:rgba(196,154,60,0.13);
+  --text:#e2ddd4;--muted:#616070;--muted2:#8a8796;
+  --ok:#173a2a;--ok2:#38b57a;--ok3:rgba(56,181,122,0.13);
+  --warn:#3a2e08;--warn2:#e8b730;--warn3:rgba(232,183,48,0.13);
+  --info:#0b2e45;--info2:#38aad4;--info3:rgba(56,170,212,0.13);
+  --red:#3a0e0e;--red2:#e05555;--red3:rgba(224,85,85,0.13);
+  --orange:#3a1e08;--orange2:#e07a35;--orange3:rgba(224,122,53,0.13);
+  --purple:#1e1535;--purple2:#9b7ef5;--purple3:rgba(155,126,245,0.13);
+  --r:7px;--r2:11px;
+}
+html{font-size:14px}
+body{font-family:'Jost',sans-serif;background:var(--bg);color:var(--text);min-height:100vh;overflow-x:hidden}
+::-webkit-scrollbar{width:4px;height:4px}
+::-webkit-scrollbar-track{background:transparent}
+::-webkit-scrollbar-thumb{background:rgba(255,255,255,.1);border-radius:2px}
+
+/* ── SETUP SCREEN ── */
+#setup-screen{position:fixed;inset:0;background:var(--bg);z-index:9999;display:flex;align-items:center;justify-content:center;padding:20px}
+#setup-screen.hidden{display:none}
+.setup-box{background:var(--s3);border:1px solid var(--border2);border-radius:14px;padding:32px;width:520px;max-width:100%}
+.setup-box h2{font-family:'Cormorant Garamond',serif;font-size:22px;color:var(--gold);margin-bottom:6px;letter-spacing:1.5px}
+.setup-box p{font-size:12px;color:var(--muted2);line-height:1.8;margin-bottom:20px}
+.setup-steps{background:var(--s4);border-radius:8px;padding:14px 16px;margin-bottom:20px;font-size:11.5px;line-height:2;color:var(--muted2)}
+.setup-steps b{color:var(--gold2)}
+.setup-steps a{color:var(--info2);text-decoration:none}
+.setup-steps a:hover{text-decoration:underline}
+.setup-field{margin-bottom:12px}
+.setup-field label{display:block;font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.8px;margin-bottom:4px}
+.setup-input{width:100%;background:var(--s4);border:1px solid var(--border2);border-radius:var(--r);padding:8px 11px;font-family:'Jost',sans-serif;font-size:12px;color:var(--text);outline:none;transition:border-color .15s}
+.setup-input:focus{border-color:var(--gold)}
+.setup-input::placeholder{color:var(--muted)}
+.setup-err{color:var(--red2);font-size:11px;margin-top:-6px;margin-bottom:8px;display:none}
+.setup-err.show{display:block}
+.btn-setup{width:100%;padding:11px;background:linear-gradient(135deg,var(--gold),var(--gold2));color:#080600;font-family:'Jost',sans-serif;font-weight:700;font-size:13px;border:none;border-radius:var(--r);cursor:pointer;letter-spacing:.5px;margin-top:4px;transition:opacity .15s}
+.btn-setup:hover{opacity:.88}
+
+/* ── LOADING ── */
+#loading-bar{position:fixed;top:0;left:0;width:100%;height:3px;background:linear-gradient(90deg,var(--gold),var(--gold2));z-index:10000;transition:opacity .4s;animation:ldAnim 1.4s infinite}
+@keyframes ldAnim{0%{transform:scaleX(0);transform-origin:left}50%{transform:scaleX(.7);transform-origin:left}100%{transform:scaleX(1);transform-origin:left;opacity:0}}
+#loading-bar.hidden{display:none}
+
+/* ── SYNC STATUS ── */
+.sync-dot{width:7px;height:7px;border-radius:50%;background:var(--ok2);display:inline-block;margin-right:5px;animation:none}
+.sync-dot.syncing{background:var(--warn2);animation:blink .7s infinite}
+.sync-dot.error{background:var(--red2)}
+@keyframes blink{0%,100%{opacity:1}50%{opacity:.2}}
+
+header{background:var(--s1);border-bottom:1px solid var(--border);padding:13px 24px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:200;gap:12px;flex-wrap:wrap}
+.logo{font-family:'Cormorant Garamond',serif;font-size:21px;color:var(--gold);letter-spacing:2.5px;text-transform:uppercase;display:flex;align-items:center;gap:9px}
+.logo-pulse{width:7px;height:7px;border-radius:50%;background:var(--gold);animation:pulse 2.4s infinite}
+@keyframes pulse{0%,100%{opacity:1;transform:scale(1)}50%{opacity:.3;transform:scale(.6)}}
+.h-sub{font-size:11px;color:var(--muted);letter-spacing:.6px;margin-top:1px}
+.h-r{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+
+.btn{padding:6px 14px;border-radius:var(--r);font-family:'Jost',sans-serif;font-size:12px;font-weight:500;cursor:pointer;transition:all .17s;border:none;letter-spacing:.3px;display:inline-flex;align-items:center;gap:5px}
+.btn-ghost{background:transparent;color:var(--muted2);border:1px solid var(--border2)}
+.btn-ghost:hover{color:var(--text);border-color:rgba(255,255,255,.22)}
+.btn-gold{background:linear-gradient(135deg,var(--gold),var(--gold2));color:#080600;font-weight:600}
+.btn-gold:hover{opacity:.88;transform:translateY(-1px)}
+.btn-danger{background:var(--red3);color:var(--red2);border:1px solid rgba(224,85,85,.3)}
+.btn-danger:hover{background:rgba(224,85,85,.2)}
+.btn-xs{padding:4px 10px;font-size:11px}
+.badge{background:var(--gold3);color:var(--gold);border:1px solid rgba(196,154,60,.35);padding:2px 8px;border-radius:20px;font-size:10.5px;font-weight:600}
+
+.kpis{display:flex;gap:10px;padding:14px 24px;background:var(--s1);border-bottom:1px solid var(--border);flex-wrap:wrap}
+.kpi{background:linear-gradient(135deg,var(--s3),var(--s4));border:1px solid var(--border);border-radius:var(--r2);padding:11px 16px;min-width:100px;flex:1;transition:border-color .2s}
+.kpi:hover{border-color:var(--border2)}
+.kpi-lbl{font-size:9.5px;color:var(--muted);text-transform:uppercase;letter-spacing:1.1px;margin-bottom:3px}
+.kpi-val{font-family:'Cormorant Garamond',serif;font-size:27px;font-weight:600;line-height:1}
+.kpi-sub{font-size:9.5px;color:var(--muted);margin-top:2px}
+.kpi.tot .kpi-val{color:var(--gold)}
+.kpi.ok  .kpi-val{color:var(--ok2)}
+.kpi.warn .kpi-val{color:var(--warn2)}
+.kpi.info .kpi-val{color:var(--info2)}
+.kpi.plan .kpi-val{color:var(--purple2)}
+
+.tabs-bar{background:var(--s1);border-bottom:1px solid var(--border);display:flex;align-items:stretch;position:sticky;top:57px;z-index:150}
+.tabs-scroll{overflow-x:auto;flex:1;-webkit-overflow-scrolling:touch}
+.tabs-scroll::-webkit-scrollbar{height:3px}
+.tabs-scroll::-webkit-scrollbar-thumb{background:var(--border2)}
+.tabs{display:flex;padding:0 4px;min-width:max-content}
+.tab{padding:0;font-size:12px;font-weight:500;color:var(--muted);cursor:pointer;border-bottom:2px solid transparent;white-space:nowrap;transition:all .17s;display:flex;align-items:stretch;letter-spacing:.2px}
+.tab:hover{color:var(--text)}
+.tab.active{color:var(--gold);border-bottom-color:var(--gold)}
+.tab-inner{display:flex;align-items:center;gap:6px;padding:10px 10px 10px 16px}
+.tab-cnt{font-size:9.5px;padding:1px 6px;border-radius:10px;background:var(--s4);color:var(--muted2)}
+.tab.active .tab-cnt{background:var(--gold3);color:var(--gold)}
+.tab-del{display:flex;align-items:center;justify-content:center;width:22px;padding:0 4px;opacity:0;background:none;border:none;color:var(--muted);cursor:pointer;font-size:11px;transition:all .15s;border-radius:4px;margin:5px 4px 5px 0}
+.tab:hover .tab-del{opacity:1}
+.tab-del:hover{background:var(--red3);color:var(--red2)}
+.btn-new-month{background:transparent;border:none;border-left:1px solid var(--border);padding:0 20px;color:var(--gold);cursor:pointer;font-size:13px;font-family:'Jost',sans-serif;white-space:nowrap;transition:background .15s;letter-spacing:.3px;font-weight:500;display:flex;align-items:center;gap:6px}
+.btn-new-month:hover{background:var(--gold3)}
+
+.panel{display:none;padding:20px 24px;gap:20px;flex-direction:column}
+.panel.active{display:flex;animation:fadeUp .22s ease}
+@keyframes fadeUp{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
+
+.sec-box{border:1px solid var(--border);border-radius:var(--r2);overflow:hidden;background:var(--s1)}
+.sec-box.planejado{border-color:rgba(155,126,245,.15)}
+.sec-box.emergencial{border-color:rgba(224,122,53,.12)}
+.sec-hdr{display:flex;align-items:center;justify-content:space-between;padding:12px 16px;border-bottom:1px solid var(--border);gap:10px;flex-wrap:wrap}
+.sec-title{display:flex;align-items:center;gap:9px;font-size:12px;font-weight:600;letter-spacing:.8px;text-transform:uppercase}
+.sec-icon{width:26px;height:26px;border-radius:7px;display:flex;align-items:center;justify-content:center;font-size:13px}
+.icon-plan{background:var(--purple3);color:var(--purple2)}
+.icon-emrg{background:var(--orange3);color:var(--orange2)}
+.sec-hdr-r{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.sec-badge{font-size:10px;padding:2px 8px;border-radius:10px;font-weight:600}
+.sb-plan{background:var(--purple3);color:var(--purple2)}
+.sb-emrg{background:var(--orange3);color:var(--orange2)}
+
+.sw{position:relative;display:flex;align-items:center}
+.sw svg{position:absolute;left:9px;color:var(--muted);pointer-events:none}
+.search{background:var(--s3);border:1px solid var(--border2);border-radius:var(--r);padding:6px 10px 6px 29px;font-family:'Jost',sans-serif;font-size:12px;color:var(--text);width:180px;outline:none;transition:border-color .17s}
+.search:focus{border-color:var(--gold)}
+.search::placeholder{color:var(--muted)}
+.flt{background:var(--s3);border:1px solid var(--border2);border-radius:var(--r);padding:6px 8px;font-family:'Jost',sans-serif;font-size:11.5px;color:var(--text);outline:none;cursor:pointer}
+.flt option{background:var(--s3)}
+.btn-add-row{background:transparent;border:1px dashed var(--border2);color:var(--muted2);padding:5px 12px;border-radius:var(--r);font-family:'Jost',sans-serif;font-size:11px;cursor:pointer;transition:all .17s;display:flex;align-items:center;gap:4px}
+.btn-add-row:hover{border-color:var(--ok2);color:var(--ok2)}
+
+.tbl-wrap{overflow-x:auto}
+table{width:100%;border-collapse:collapse;min-width:700px}
+thead tr{background:var(--s3)}
+th{padding:8px 12px;text-align:left;font-size:9.5px;font-weight:600;color:var(--gold);text-transform:uppercase;letter-spacing:1.1px;border-bottom:1px solid var(--border);white-space:nowrap;cursor:pointer;user-select:none}
+th:hover{color:var(--gold2)}
+th.ns{cursor:default}
+th.ns:hover{color:var(--gold)}
+.sort-ic{margin-left:3px;opacity:.4;font-size:10px}
+tbody tr{border-bottom:1px solid var(--border);transition:background .13s}
+tbody tr:last-child{border-bottom:none}
+tbody tr:hover{background:rgba(255,255,255,.017)}
+tbody tr.alta-row{border-left:2px solid var(--red2);background:rgba(224,85,85,.025)}
+tbody tr.alta-row:hover{background:rgba(224,85,85,.04)}
+tbody tr.media-row{border-left:2px solid var(--orange2)}
+td{padding:0;vertical-align:middle}
+.td-n{color:var(--muted);font-size:10px;text-align:center;padding:6px 4px;border-right:1px solid var(--border);min-width:32px}
+
+.ci{width:100%;background:transparent;border:none;outline:none;font-family:'Jost',sans-serif;font-size:12.5px;color:var(--text);padding:7px 11px;min-height:38px;transition:background .13s}
+.ci:focus{background:rgba(196,154,60,.07)}
+.ci::placeholder{color:var(--muted)}
+
+.prio-cell{padding:4px 10px}
+.prio{display:inline-flex;align-items:center;padding:2px 8px;border-radius:20px;font-size:10px;font-weight:700;letter-spacing:.5px;white-space:nowrap;cursor:pointer;user-select:none;transition:transform .13s}
+.prio:hover{transform:scale(1.08)}
+.p-alta{background:var(--red3);color:var(--red2);border:1px solid rgba(224,85,85,.3)}
+.p-media{background:var(--orange3);color:var(--orange2);border:1px solid rgba(224,122,53,.3)}
+.p-baixa{background:var(--info3);color:var(--info2);border:1px solid rgba(56,170,212,.3)}
+
+.st-cell{padding:4px 10px}
+.st{display:inline-flex;align-items:center;padding:2px 8px;border-radius:20px;font-size:10px;font-weight:600;letter-spacing:.4px;white-space:nowrap;cursor:pointer;user-select:none;transition:transform .13s}
+.st:hover{transform:scale(1.06)}
+.st-c{background:var(--ok3);color:var(--ok2);border:1px solid rgba(56,181,122,.25)}
+.st-a{background:var(--info3);color:var(--info2);border:1px solid rgba(56,170,212,.25)}
+.st-i{background:var(--warn3);color:var(--warn2);border:1px solid rgba(232,183,48,.25)}
+.st-d{background:var(--s4);color:var(--muted2);border:1px solid var(--border)}
+
+.sv-cell{padding:4px 10px}
+.sv{display:inline-flex;align-items:center;padding:2px 8px;border-radius:6px;font-size:10.5px;font-weight:500;cursor:pointer;transition:opacity .15s}
+.sv:hover{opacity:.8}
+.sv-REPAROS{background:#192840;color:#7ec5ff}
+.sv-LIMPEZA{background:#102618;color:#5fdb94}
+.sv-AR{background:#18193a;color:#9eadff}
+.sv-LAMPADA{background:#2a2208;color:#f5c63a}
+.sv-TV{background:#22112a;color:#e090ff}
+.sv-PINTURA{background:#2a1a0a;color:#ffaa5a}
+.sv-INSTALACAO{background:#0a1e28;color:#40ddef}
+.sv-VIDROS{background:#0a1c30;color:#60c0ff}
+.sv-OBRA{background:#28100c;color:#ff7a75}
+.sv-ELETRICA{background:#182210;color:#a0e05a}
+.sv-REFRIGERECAO{background:#081e30;color:#50d5ff}
+.sv-CHUVEIRO{background:#1e0e2a;color:#cc88ff}
+.sv-REFORMA{background:#281608;color:#ffaa42}
+.sv-MANUTENCAO{background:#0e2228;color:#42e5c8}
+.sv-TELEFONE{background:#151a30;color:#8ab8ff}
+.sv-JARDIM{background:#122215;color:#70e890}
+.sv-default{background:var(--s4);color:var(--muted2)}
+
+.del{opacity:0;background:none;border:none;color:var(--red2);cursor:pointer;font-size:14px;padding:4px 6px;border-radius:5px;transition:all .15s;display:block;margin:auto}
+tr:hover .del{opacity:1}
+.del:hover{background:var(--red3);transform:scale(1.15)}
+.empty-row td{text-align:center;color:var(--muted);padding:32px;font-size:13px}
+
+#empty-state{display:none;flex-direction:column;align-items:center;justify-content:center;padding:80px 24px;gap:20px;text-align:center}
+.es-icon{font-size:60px;opacity:.15}
+.es-title{font-family:'Cormorant Garamond',serif;font-size:26px;color:var(--gold);letter-spacing:2px}
+.es-sub{font-size:13px;color:var(--muted);max-width:340px;line-height:1.8}
+
+footer{background:var(--s1);border-top:1px solid var(--border);padding:11px 24px;display:flex;align-items:center;justify-content:space-between;font-size:11px;color:var(--muted);flex-wrap:wrap;gap:8px}
+.sp{display:flex;align-items:center;gap:6px;opacity:0;transition:opacity .4s;background:var(--ok3);border:1px solid rgba(56,181,122,.2);padding:3px 10px;border-radius:20px;color:var(--ok2)}
+.sp.show{opacity:1}
+.sp-dot{width:5px;height:5px;border-radius:50%;background:var(--ok2)}
+
+.ov{display:none;position:fixed;inset:0;background:rgba(0,0,0,.75);z-index:999;align-items:center;justify-content:center;backdrop-filter:blur(5px)}
+.ov.show{display:flex}
+.modal{background:var(--s3);border:1px solid var(--border2);border-radius:var(--r2);padding:22px;width:360px;max-width:95vw;max-height:90vh;overflow-y:auto}
+.modal h3{font-family:'Cormorant Garamond',serif;font-size:17px;color:var(--gold);margin-bottom:16px;letter-spacing:1px}
+.mrow{margin-bottom:12px}
+.mrow label{display:block;font-size:10px;color:var(--muted2);text-transform:uppercase;letter-spacing:.8px;margin-bottom:4px}
+.minput,.msel{width:100%;background:var(--s4);border:1px solid var(--border2);border-radius:var(--r);padding:8px 10px;font-family:'Jost',sans-serif;font-size:12.5px;color:var(--text);outline:none;transition:border-color .15s}
+.minput:focus,.msel:focus{border-color:var(--gold)}
+.msel option{background:var(--s4)}
+.mactions{display:flex;gap:8px;justify-content:flex-end;margin-top:16px}
+
+.confirm-modal{background:var(--s3);border:1px solid rgba(224,85,85,.3);border-radius:var(--r2);padding:28px 24px;width:340px;max-width:95vw;text-align:center}
+.confirm-icon{font-size:38px;margin-bottom:12px}
+.confirm-modal h3{font-family:'Cormorant Garamond',serif;font-size:18px;color:var(--red2);margin-bottom:8px}
+.confirm-modal p{font-size:12.5px;color:var(--muted2);line-height:1.7;margin-bottom:6px}
+.confirm-modal strong{color:var(--text)}
+.warn-detail{font-size:11px;color:var(--warn2);background:var(--warn3);border:1px solid rgba(232,183,48,.2);border-radius:6px;padding:6px 10px;margin:10px 0 16px;display:block}
+.confirm-actions{display:flex;gap:10px;justify-content:center}
+
+@media print{
+  body{background:#fff;color:#111;font-size:11px}
+  #setup-screen,header,footer,.tabs-bar,.kpis,.sec-hdr-r,.del,.tab-del,.btn-add-row{display:none!important}
+  .panel{display:flex!important;padding:0!important}
+  .panel:not(.active){display:none!important}
+  .sec-box{border:1px solid #ddd;margin-bottom:16px;page-break-inside:avoid}
+  .sec-hdr{background:#f5f5f5;border-bottom:1px solid #ddd}
+  table{min-width:auto}
+  thead tr{background:#f0f0f0}
+  th{color:#555;font-size:8.5px}
+  td,th{border-bottom:1px solid #eee}
+  .ci{color:#111;font-size:11px}
+  .prio,.st,.sv{border:1px solid #ccc!important;color:#333!important;background:#f9f9f9!important}
+  .pdf-header{display:block!important}
+}
+.pdf-header{display:none;font-family:'Cormorant Garamond',serif;font-size:22px;font-weight:700;letter-spacing:2px;text-transform:uppercase;margin-bottom:4px;color:#111}
+.pdf-subheader{display:none;font-size:11px;color:#555;margin-bottom:16px}
+@media print{.pdf-header,.pdf-subheader{display:block}}
+</style>
+</head>
+<body>
+
+<!-- ═══════════════════════════════════════════════════════════
+     SETUP SCREEN — aparece apenas na 1ª vez
+═══════════════════════════════════════════════════════════ -->
+<div id="setup-screen">
+  <div class="setup-box">
+    <h2>🔧 Configurar Firebase</h2>
+    <p>Cole aqui as credenciais do seu projeto Firebase para que todos os funcionários compartilhem os mesmos dados em tempo real.</p>
+
+    <div class="setup-steps">
+      <b>Como obter as credenciais:</b><br>
+      1. Acesse <a href="https://console.firebase.google.com" target="_blank">console.firebase.google.com</a><br>
+      2. Crie um projeto → clique em <b>"Web"</b> (&lt;/&gt;)<br>
+      3. Copie o objeto <b>firebaseConfig</b> que aparecer<br>
+      4. Cole cada campo abaixo e clique em Conectar
+    </div>
+
+    <div class="setup-field">
+      <label>API Key</label>
+      <input class="setup-input" id="cfg-apiKey" placeholder="AIzaSy...">
+    </div>
+    <div class="setup-field">
+      <label>Auth Domain</label>
+      <input class="setup-input" id="cfg-authDomain" placeholder="meu-projeto.firebaseapp.com">
+    </div>
+    <div class="setup-field">
+      <label>Database URL</label>
+      <input class="setup-input" id="cfg-dbURL" placeholder="https://meu-projeto-default-rtdb.firebaseio.com">
+    </div>
+    <div class="setup-field">
+      <label>Project ID</label>
+      <input class="setup-input" id="cfg-projectId" placeholder="meu-projeto">
+    </div>
+    <div class="setup-field">
+      <label>App ID</label>
+      <input class="setup-input" id="cfg-appId" placeholder="1:123456789:web:abc...">
+    </div>
+    <div class="setup-err" id="setup-err">❌ Preencha todos os campos corretamente.</div>
+    <button class="btn-setup" onclick="connectFirebase()">🔗 Conectar ao Firebase</button>
+  </div>
+</div>
+
+<!-- Loading bar -->
+<div id="loading-bar"></div>
+
+<!-- ── RECORD MODAL ── -->
+<div class="ov" id="ov" onclick="ovClose(event)">
+  <div class="modal">
+    <h3 id="mod-title">Novo Registro</h3>
+    <div class="mrow"><label>Tipo</label>
+      <select class="msel" id="m-tipo" onchange="onTipoChange()">
+        <option value="EMERGENCIAL">⚡ Emergencial</option>
+        <option value="PLANEJADO">📋 Planejado</option>
+      </select>
+    </div>
+    <div class="mrow"><label>Quarto / Área</label><input class="minput" id="m-area" placeholder="ex: UH15, COZINHA, PISCINA…"></div>
+    <div class="mrow"><label>Serviço</label>
+      <select class="msel" id="m-serv">
+        <option>REPAROS</option><option>LIMPEZA</option><option>AR</option><option>LAMPADA</option>
+        <option>TV</option><option>PINTURA</option><option>INSTALAÇÃO</option><option>VIDROS</option>
+        <option>OBRA</option><option>ELETRICA</option><option>REFRIGEREÇÃO</option><option>CHUVEIRO</option>
+        <option>REFORMA</option><option>MANUTENÇÃO</option><option>TELEFONE</option><option>JARDIM</option>
+      </select>
+    </div>
+    <div class="mrow"><label>Descrição</label><input class="minput" id="m-desc" placeholder="Descreva o serviço…"></div>
+    <div class="mrow" id="m-prio-row"><label>Prioridade</label>
+      <select class="msel" id="m-prio">
+        <option value="ALTA">🔴 Alta</option>
+        <option value="MEDIA" selected>🟠 Média</option>
+        <option value="BAIXA">🔵 Baixa</option>
+      </select>
+    </div>
+    <div class="mrow"><label>Funcionários</label><input class="minput" id="m-func" placeholder="ex: ANDRE, EDINHO…"></div>
+    <div class="mrow"><label>Data Início</label><input class="minput" id="m-ini" type="date"></div>
+    <div class="mrow" id="m-fim-row"><label>Prazo / Data Fim</label><input class="minput" id="m-fim" type="date"></div>
+    <div class="mrow"><label>Status</label>
+      <select class="msel" id="m-stat">
+        <option value="INDENTIFICADO">⚑ Identificado</option>
+        <option value="ANDAMENTO">⟳ Em Andamento</option>
+        <option value="CONCLUIDO">✓ Concluído</option>
+      </select>
+    </div>
+    <div class="mactions">
+      <button class="btn btn-ghost btn-xs" onclick="ovClose()">Cancelar</button>
+      <button class="btn btn-gold btn-xs" onclick="addRecord()">Adicionar</button>
+    </div>
+  </div>
+</div>
+
+<!-- ── NEW MONTH MODAL ── -->
+<div class="ov" id="ov-month" onclick="closeNewMonth(event)">
+  <div class="modal" style="max-width:320px">
+    <h3>📅 Novo Mês</h3>
+    <div class="mrow"><label>Selecione o Mês e Ano</label>
+      <input class="minput" id="nm-picker" type="month" style="cursor:pointer">
+    </div>
+    <p style="font-size:11px;color:var(--muted);margin-top:-6px;line-height:1.6">O mês será criado vazio. Adicione serviços depois.</p>
+    <div class="mactions">
+      <button class="btn btn-ghost btn-xs" onclick="closeNewMonth()">Cancelar</button>
+      <button class="btn btn-gold btn-xs" onclick="confirmNewMonth()">Criar Mês</button>
+    </div>
+  </div>
+</div>
+
+<!-- ── DELETE MONTH MODAL ── -->
+<div class="ov" id="ov-del-month">
+  <div class="confirm-modal">
+    <div class="confirm-icon">🗑️</div>
+    <h3>Excluir Mês?</h3>
+    <p>Você está prestes a excluir o mês <strong id="del-month-name">—</strong>.</p>
+    <span class="warn-detail" id="del-month-detail"></span>
+    <p style="font-size:11px;color:var(--muted)">Esta ação não pode ser desfeita.</p>
+    <div class="confirm-actions" style="margin-top:20px">
+      <button class="btn btn-ghost btn-xs" onclick="closeDelMonth()">Cancelar</button>
+      <button class="btn btn-danger btn-xs" onclick="confirmDelMonth()">✕ Excluir</button>
+    </div>
+  </div>
+</div>
+
+<header>
+  <div>
+    <div class="logo"><span class="logo-pulse"></span>Gestão de Manutenção</div>
+    <div class="h-sub">Sistema de Serviços · Búzios</div>
+  </div>
+  <div class="h-r">
+    <span id="sync-status" style="font-size:11px;color:var(--muted2);display:flex;align-items:center">
+      <span class="sync-dot syncing" id="sync-dot"></span><span id="sync-txt">Conectando…</span>
+    </span>
+    <span class="badge" id="hdr-badge">—</span>
+    <button class="btn btn-ghost btn-xs" onclick="exportCSV()">↓ CSV</button>
+    <button class="btn btn-ghost btn-xs" onclick="exportPDF()">📄 PDF</button>
+    <button class="btn btn-gold btn-xs" onclick="saveAll()">✓ Salvar</button>
+  </div>
+</header>
+
+<div class="kpis">
+  <div class="kpi tot"><div class="kpi-lbl">Total</div><div class="kpi-val" id="kt">—</div><div class="kpi-sub">registros</div></div>
+  <div class="kpi ok"><div class="kpi-lbl">Concluídos</div><div class="kpi-val" id="kc">—</div><div class="kpi-sub" id="kc-p"></div></div>
+  <div class="kpi info"><div class="kpi-lbl">Em Andamento</div><div class="kpi-val" id="ka">—</div><div class="kpi-sub">em execução</div></div>
+  <div class="kpi warn"><div class="kpi-lbl">Identificados</div><div class="kpi-val" id="ki">—</div><div class="kpi-sub">pendente</div></div>
+  <div class="kpi plan"><div class="kpi-lbl">Planejados</div><div class="kpi-val" id="kp">—</div><div class="kpi-sub">com prazo</div></div>
+</div>
+
+<div class="tabs-bar">
+  <div class="tabs-scroll"><div class="tabs" id="tabs"></div></div>
+  <button class="btn-new-month" onclick="openNewMonth()">📅 ＋ Mês</button>
+</div>
+
+<div id="empty-state">
+  <div class="es-icon">📅</div>
+  <div class="es-title">Nenhum mês criado</div>
+  <div class="es-sub">Clique em <strong style="color:var(--gold)">📅 ＋ Mês</strong> para criar o primeiro mês.</div>
+  <button class="btn btn-gold" onclick="openNewMonth()" style="margin-top:8px;padding:10px 28px;font-size:13px">📅 Criar Primeiro Mês</button>
+</div>
+<div id="panels"></div>
+
+<footer>
+  <span id="ftr"></span>
+  <div style="display:flex;align-items:center;gap:12px">
+    <span style="font-size:10px;color:var(--muted);opacity:.5">Clique status/prioridade para alternar · serviço para editar</span>
+    <div class="sp" id="sp"><div class="sp-dot"></div>Salvo</div>
+  </div>
+</footer>
+
+<!-- Firebase SDKs -->
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
+
+<script>
+// ─── CONSTANTS ────────────────────────────────────────────────────────────────
+const MONTHS_PT=['Jan','Fev','Mar','Abr','Mai','Jun','Jul','Ago','Set','Out','Nov','Dez'];
+const PRIO_CYCLE=['ALTA','MEDIA','BAIXA'];
+const ST_CYCLE=['INDENTIFICADO','ANDAMENTO','CONCLUIDO'];
+const SERVICOS=['REPAROS','LIMPEZA','AR','LAMPADA','TV','PINTURA','INSTALAÇÃO','VIDROS','OBRA','ELETRICA','REFRIGEREÇÃO','CHUVEIRO','REFORMA','MANUTENÇÃO','TELEFONE','JARDIM'];
+
+// ─── STATE ────────────────────────────────────────────────────────────────────
+let MONTHS=[], DATA=[];
+let activeMonth=0, modalTarget=null, sortDir={}, delMonthIdx=null;
+let db=null, isSaving=false;
+
+// ─── FIREBASE SETUP ───────────────────────────────────────────────────────────
+function connectFirebase(){
+  const apiKey=document.getElementById('cfg-apiKey').value.trim();
+  const authDomain=document.getElementById('cfg-authDomain').value.trim();
+  const dbURL=document.getElementById('cfg-dbURL').value.trim();
+  const projectId=document.getElementById('cfg-projectId').value.trim();
+  const appId=document.getElementById('cfg-appId').value.trim();
+  const err=document.getElementById('setup-err');
+
+  if(!apiKey||!authDomain||!dbURL||!projectId||!appId){
+    err.classList.add('show');return;
+  }
+  err.classList.remove('show');
+
+  const cfg={apiKey,authDomain,databaseURL:dbURL,projectId,appId};
+  localStorage.setItem('hotel_fb_cfg',JSON.stringify(cfg));
+  initFirebase(cfg);
+}
+
+function initFirebase(cfg){
+  try{
+    if(firebase.apps.length===0) firebase.initializeApp(cfg);
+    db=firebase.database();
+    document.getElementById('setup-screen').classList.add('hidden');
+    setSyncStatus('syncing','Sincronizando…');
+    listenData();
+  }catch(e){
+    setSyncStatus('error','Erro de conexão');
+    console.error(e);
+    alert('Erro ao conectar: '+e.message);
+  }
+}
+
+function setSyncStatus(state,txt){
+  const dot=document.getElementById('sync-dot');
+  const label=document.getElementById('sync-txt');
+  dot.className='sync-dot'+(state==='ok'?' ':(state==='syncing'?' syncing':' error'));
+  label.textContent=txt;
+}
+
+// ─── FIREBASE LISTENER ────────────────────────────────────────────────────────
+function listenData(){
+  db.ref('hotel_manutencao').on('value', snap=>{
+    const val=snap.val();
+    if(val&&val.months&&val.data){
+      MONTHS=val.months;
+      DATA=val.data;
+    } else {
+      // Primeiro acesso: carrega dados padrão e salva no Firebase
+      MONTHS=[...DEFAULT_MONTHS];
+      DATA=DEFAULT_DATA.map(m=>m.map(r=>({...r})));
+      pushToFirebase();
+    }
+    buildUI();
+    computeKPIs();
+    if(MONTHS.length) updateFooter(activeMonth);
+    setSyncStatus('ok','● Online · '+new Date().toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'}));
+    document.getElementById('loading-bar').classList.add('hidden');
+  }, err=>{
+    setSyncStatus('error','Erro de conexão');
+    console.error(err);
+  });
+}
+
+function pushToFirebase(){
+  if(!db) return;
+  isSaving=true;
+  setSyncStatus('syncing','Salvando…');
+  db.ref('hotel_manutencao').set({months:MONTHS,data:DATA}).then(()=>{
+    isSaving=false;
+    setSyncStatus('ok','● Salvo · '+new Date().toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'}));
+    const sp=document.getElementById('sp');
+    sp.classList.add('show');
+    setTimeout(()=>sp.classList.remove('show'),2800);
+  }).catch(e=>{
+    isSaving=false;
+    setSyncStatus('error','Erro ao salvar');
+    console.error(e);
+  });
+}
+
+// ─── DEFAULT DATA ─────────────────────────────────────────────────────────────
+const E=(a,s,d,st,f,i,fi,p='BAIXA')=>({tipo:'EMERGENCIAL',prio:p,area:a,serv:s,desc:d,stat:st,func:f,ini:i,fim:fi});
+const P=(a,s,d,st,f,i,fi,p='MEDIA')=>({tipo:'PLANEJADO',prio:p,area:a,serv:s,desc:d,stat:st,func:f,ini:i,fim:fi});
+const DEFAULT_MONTHS=['Jun/Jul 2025','Ago 2025','Set 2025','Out 2025','Nov 2025','Dez 2025','Jan 2026'];
+const DEFAULT_DATA=[
+[P('UH23','REPAROS','Rejunte do box e ao redor do vaso / pintura do teto','CONCLUIDO','FERNANDO','28/06/2025','03/07/2025','MEDIA'),P('UH06','OBRA','Reforma geral: parte elétrica / luminária / TV / cofre','CONCLUIDO','TODOS','30/06/2025','06/07/2025','ALTA'),P('UH29','REPAROS','Pintura do teto / rejunte do box / calafete o ralo / trinco da janela','CONCLUIDO','FERNANDO','05/07/2025','10/07/2025','MEDIA'),P('UH04','PINTURA','Deck da varanda / mesa e cadeira','CONCLUIDO','EXTRA','07/07/2025','14/07/2025','BAIXA'),P('UH27','REPAROS','Rejunte do box / pintura do teto','CONCLUIDO','FERNANDO','11/07/2025','14/07/2025','BAIXA'),P('AREA EXTERNA','PINTURA','Pintura geral do estoque','CONCLUIDO','FERNANDO','15/07/2025','27/07/2025','BAIXA'),E('UH25','PINTURA','Pintura do teto','CONCLUIDO','FERNANDO','27/06/2025','28/06/2025'),E('AREA EXTERNA','LIMPEZA','Lustres recepção/reserva/escritório/banheiro/salão de jogos','CONCLUIDO','IGOR','27/06/2025','27/06/2025'),E('AREA EXTERNA','REPAROS','Luminária da academia com transformador queimado','CONCLUIDO','EDINHO','27/06/2025','29/06/2025'),E('COZINHA','REPAROS','Reparo da bancada da produção','CONCLUIDO','ANDRE','27/06/2025','28/06/2025'),E('AREA EXTERNA','REPAROS','Reparo da escada da descida da cozinha','CONCLUIDO','ANDRE','25/06/2025','27/06/2025'),E('UH03','TV','Troca da TV — não queria ligar','CONCLUIDO','EDINHO','28/06/2025','28/06/2025'),E('UH21','VIDROS','Limpeza dos vidros','CONCLUIDO','GABRIEL','28/06/2025','28/06/2025'),E('UH21','AR','Limpeza dos filtros','CONCLUIDO','EDINHO','28/06/2025','28/06/2025'),E('UH04','VIDROS','Limpeza dos vidros','CONCLUIDO','GABRIEL','28/06/2025','28/06/2025'),E('UH04','AR','Pingando dentro do quarto e fora','CONCLUIDO','EDINHO','28/06/2025','28/06/2025'),E('UH22','AR','Filtro do ar','CONCLUIDO','ANDRE','28/06/2025','28/06/2025'),E('UH20','AR','Limpeza dos filtros','CONCLUIDO','EDINHO','28/06/2025','28/06/2025'),E('UH21','REPAROS','Pia quebrada','INDENTIFICADO','EDINHO','28/07/2025','','ALTA'),E('UH23','REPAROS','Cheiro muito forte de gás no UH23','INDENTIFICADO','EDINHO','18/07/2025','','ALTA'),E('COZINHA','REFRIGEREÇÃO','Geladeira repondo gás','CONCLUIDO','FERNANDO','28/06/2025','28/06/2025'),E('SPA','REPAROS','Forro do spa caindo','CONCLUIDO','ANDRE','30/06/2025','02/07/2025'),E('UH29','VIDROS','Vidro quebrado do basculante da janela do banheiro','CONCLUIDO','EXTRA','02/07/2025','10/07/2025'),E('UH24','AR','Foi colocado gás','CONCLUIDO','FERNANDO','01/07/2025','01/07/2025'),E('SALÃO DE CAFE','REPAROS','Porta não estava abrindo','CONCLUIDO','IGOR','02/07/2025','02/07/2025'),E('UH22','REPAROS','Chuveiro pingando — troca de reparo','CONCLUIDO','ANDRE','02/07/2025','02/07/2025'),E('COZINHA','REPAROS','Liquidificador da produção — troca de peça','CONCLUIDO','IGOR','03/07/2025','03/07/2025'),E('UH14','REPAROS','Troca do secador / tomada / TV','CONCLUIDO','IGOR E FERNANDO','04/07/2025','04/07/2025'),E('UH14','AR','Limpeza dos filtros','CONCLUIDO','IGOR','07/07/2025','07/07/2025'),E('UH24','OBRA','Troca da madeira do deck / espelho do deck','CONCLUIDO','ANDRE','09/07/2025','12/07/2025'),E('PISCINA','REPAROS','Corrimão da escada da descida solto — piscina principal','CONCLUIDO','ANDRE','11/07/2025','11/07/2025'),E('UH01','VIDROS','Vidro do banheiro quebrado','CONCLUIDO','EDINHO','13/07/2025','28/07/2025'),E('AREA EXTERNA','CHUVEIRO','Instalação do chuveiro no banheiro feminino','CONCLUIDO','EDINHO','14/07/2025','16/07/2025'),E('REFEITORIO','ELETRICA','Conserto do microondas do refeitório','CONCLUIDO','FERNANDO','14/07/2025','14/07/2025'),E('UH12','VIDROS','Blindex da porta da varanda solto','CONCLUIDO','EDINHO','15/07/2025','15/07/2025'),E('COZINHA','TELEFONE','Telefone da cozinha com mau contato','CONCLUIDO','IGOR','16/07/2025','16/07/2025'),E('SAUNA','REPAROS','Resistência da sauna com defeito (troca realizada)','CONCLUIDO','EDINHO','20/07/2025','21/07/2025'),E('UH38','AR','Troca da bomba da evaporadora / limpeza','CONCLUIDO','EDINHO','22/07/2025','23/07/2025'),E('AREA EXTERNA','REPAROS','Botoeira do portão de carga e descarga','CONCLUIDO','EDINHO','20/07/2025','20/07/2025'),E('PISCINA','ELETRICA','Bomba da piscina Personalité — problema elétrico','CONCLUIDO','EDINHO','26/07/2025','26/07/2025'),E('UH08','REPAROS','Varanda com madeiras soltas','CONCLUIDO','ANDRE','27/07/2025','27/07/2025'),E('PISCINA','REPAROS','Bomba da piscina Personalité travada','CONCLUIDO','EDINHO','28/07/2025','28/07/2025'),E('UH06','REPAROS','Troca do chuveiro e da ducha higiênica','CONCLUIDO','EDINHO','29/07/2025','29/07/2025'),E('SALÃO DE CAFE','LAMPADA','Troca de lâmpada do salão por lâmpadas amarelas','CONCLUIDO','ANDRE','31/07/2025','31/07/2025'),E('PISCINA','LIMPEZA','Limpeza das piscinas e churrasqueira','CONCLUIDO','GABRIEL','28/07/2025','28/07/2025')],
+[P('AREA EXTERNA','REFORMA','Corrimão de acesso à piscina e em frente ao UH15/16','CONCLUIDO','ANDRE','12/08/2025','20/08/2025','ALTA'),P('UH03','REFORMA','Reforma geral do apartamento','CONCLUIDO','TODOS','11/08/2025','24/09/2025','ALTA'),E('UH12','REFORMA','Teto de gesso pendurado — reparo urgente','INDENTIFICADO','EDINHO','04/08/2025','','ALTA'),E('PISCINA','OBRA','Pedra da borda da piscina principal quebrada','INDENTIFICADO','ANDRE','22/08/2025','','ALTA'),E('UH21','PINTURA','Pintura do teto e das paredes do banheiro','CONCLUIDO','ANDRE','24/08/2025','24/08/2025'),E('UH42','REPAROS','Conserto da madeira na caixa da sauna e troca do interruptor','CONCLUIDO','ANDRE','21/08/2025','23/08/2025'),E('SAUNA','REPAROS','Pedra solta na sauna','CONCLUIDO','ANDRE','21/08/2025','22/08/2025'),E('SALÃO DE CAFE','PINTURA','Pintura da porta do salão de café','CONCLUIDO','ANDRE','21/08/2025','21/08/2025'),E('UH36','REFORMA','Porta da casa de força','CONCLUIDO','ANDRE','15/08/2025','20/08/2025'),E('COZINHA','LIMPEZA','Limpeza da máquina de frios da produção','CONCLUIDO','ANDRE','29/08/2025','29/08/2025'),E('UH15','AR','Reconfiguração do ar','CONCLUIDO','ANDRE','28/08/2025','28/08/2025'),E('TODAS UH','INSTALAÇÃO','Troca dos cofres do Personalité para digital','CONCLUIDO','EDINHO','22/08/2025','22/08/2025'),E('UH24','AR','Não está gelando','CONCLUIDO','EDINHO','26/08/2025','19/09/2025'),E('UH34','REPAROS','Troca da tomada da bomba da banheira','CONCLUIDO','EDINHO','25/08/2025','25/08/2025'),E('PISCINA','REFRIGEREÇÃO','Carregado o gás da geladeira do bar','CONCLUIDO','EDINHO','25/08/2025','25/08/2025'),E('COZINHA','INSTALAÇÃO','Instalação de câmera nova + luminária aquecida dos pratos','CONCLUIDO','EDINHO','08/08/2025','19/08/2025'),E('AREA EXTERNA','ELETRICA','Colocado postinho em frente ao UH31/32','CONCLUIDO','EDINHO','08/08/2025','08/08/2025'),E('AREA EXTERNA','REPAROS','Registro embaixo do deck perto da academia — vazamento','CONCLUIDO','EDINHO E ANDRE','23/08/2025','30/08/2025'),E('COZINHA','LIMPEZA','Limpeza na coifa','CONCLUIDO','EDINHO E GABRIEL','18/08/2025','18/08/2025'),E('PISCINA','LIMPEZA','Limpeza das piscinas e espreguiçadeiras','CONCLUIDO','GABRIEL','27/08/2025','27/08/2025')],
+[P('UH41','OBRA','Obra da fachada — UH41','ANDAMENTO','TODOS','28/09/2025','','ALTA'),P('UH11','REFORMA','Reforma geral do apartamento','ANDAMENTO','TODOS','01/09/2025','','MEDIA'),E('RECEPÇÃO','LAMPADA','LED queimado da recepção','INDENTIFICADO','','','','ALTA'),E('UH18','REPAROS','Pia solta do banheiro','CONCLUIDO','EDINHO','01/09/2025','04/10/2025'),E('SAUNA','REPAROS','Troca das roldanas da porta da sauna','CONCLUIDO','ANDRE','24/09/2025','24/09/2025'),E('SALÃO DE CAFE','REPAROS','Freezer com vazamento de água (vedação realizada)','CONCLUIDO','ANDRE','17/09/2025','18/09/2025'),E('RECEPÇÃO','REPAROS','Vaso do banheiro feminino solto','CONCLUIDO','ANDRE','02/09/2025','02/09/2025'),E('RECEPÇÃO','INSTALAÇÃO','Tomada instalada no lobby + canaleta','CONCLUIDO','EDINHO','30/09/2025','30/09/2025'),E('COZINHA','REPAROS','Troca da trava do freezer e das dobradiças','CONCLUIDO','EDINHO','29/09/2025','29/09/2025'),E('AREA EXTERNA','REPAROS','Troca do registro do boiler','CONCLUIDO','EDINHO','27/09/2025','27/09/2025'),E('PISCINA','INSTALAÇÃO','Instalação da bomba da piscina principal','CONCLUIDO','EDINHO','22/09/2025','22/09/2025'),E('AREA EXTERNA','ELETRICA','Disjuntor colocado na sauna / casa do Sr. Alfredo','CONCLUIDO','EDINHO','21/09/2025','21/09/2025'),E('UH42','ELETRICA','Tomada 220 não estava funcionando','CONCLUIDO','EDINHO','21/09/2025','21/09/2025'),E('UH27','REFRIGEREÇÃO','Troca do relê do frigobar','CONCLUIDO','EDINHO','20/09/2025','20/09/2025'),E('UH16','REPAROS','Descarga com vazamento / torneira pingando','CONCLUIDO','EDINHO','12/09/2025','14/09/2025'),E('UH13','REPAROS','Box com vazamento pela lateral','CONCLUIDO','EDINHO','06/09/2025','06/09/2025'),E('AREA EXTERNA','LIMPEZA','Limpeza das piscinas / poltronas','CONCLUIDO','GABRIEL','25/09/2025','25/09/2025'),E('PISCINA','LIMPEZA','Limpeza do ombrelone principal','CONCLUIDO','GABRIEL','22/09/2025','22/09/2025'),E('SALÃO DE CAFE','VIDROS','Limpeza dos vidros do salão','CONCLUIDO','GABRIEL','08/09/2025','08/09/2025')],
+[P('REFEITORIO','REFORMA','Reforma do refeitório','ANDAMENTO','TODOS','01/10/2025','','ALTA'),P('PISCINA','OBRA','Pedra da borda da piscina principal — quebrada e solta','INDENTIFICADO','ANDRE','01/10/2025','','ALTA'),E('UH40','ELETRICA','Troca do interruptor de bomba da banheira','CONCLUIDO','EDINHO','27/10/2025','27/10/2025'),E('COZINHA','ELETRICA','Fio da fritadeira em curto-circuito','CONCLUIDO','EDINHO','16/10/2025','16/10/2025'),E('UH03','ELETRICA','Substituição e colocação de disjuntores','CONCLUIDO','EDINHO','13/10/2025','13/10/2025'),E('UH09','CHUVEIRO','Chuveiro não está esquentando','CONCLUIDO','EDINHO','12/10/2025','12/10/2025'),E('UH31','CHUVEIRO','Chuveiro não estava esquentando','CONCLUIDO','EDINHO','12/10/2025','12/10/2025'),E('UH32','REPAROS','Vaso desentupido com raízes no cano','CONCLUIDO','EDINHO','10/10/2025','10/10/2025'),E('AREA EXTERNA','REPAROS','Troca da válvula solenóide do salão de jogos','CONCLUIDO','EDINHO','05/10/2025','05/10/2025'),E('UH40','REPAROS','Fechadura da porta da varanda trocada','CONCLUIDO','EDINHO','02/10/2025','02/10/2025'),E('UH18','TV','Controle novo da TV','CONCLUIDO','EDINHO','11/10/2025','11/10/2025'),E('UH33','REPAROS','Luminária de frente não acende — troca do bocal','CONCLUIDO','EDINHO','03/10/2025','04/10/2025'),E('SALÃO DE CAFE','LAMPADA','Lâmpada do banheiro feminino queimada','CONCLUIDO','ANDRE','25/10/2025','25/10/2025'),E('UH19','LAMPADA','Lâmpada da entrada da porta','CONCLUIDO','ANDRE','14/10/2025','14/10/2025'),E('UH25','REPAROS','Porta agarrando','CONCLUIDO','ANDRE','09/10/2025','09/10/2025'),E('AREA EXTERNA','LIMPEZA','Limpeza das piscinas / espreguiçadeiras','CONCLUIDO','GABRIEL','27/10/2025','27/10/2025'),E('PISCINA','LIMPEZA','Limpeza das mesas, cadeiras e guarda-sol','CONCLUIDO','GABRIEL','27/10/2025','27/10/2025'),E('AREA EXTERNA','JARDIM','Limpeza das áreas / chafariz','CONCLUIDO','GABRIEL','03/10/2025','10/10/2025')],
+[P('COZINHA','INSTALAÇÃO','Instalação e limpeza dos para-moscas da cozinha','ANDAMENTO','EDINHO','11/11/2025','','ALTA'),P('AREA EXTERNA','OBRA','Reforma do deck externo','INDENTIFICADO','','01/11/2025','','MEDIA'),E('UH21','MANUTENÇÃO','Banheiro com mau cheiro (esgoto)','INDENTIFICADO','EDINHO','15/11/2025','','ALTA'),E('UH22','MANUTENÇÃO','Banheiro com mau cheiro (esgoto)','INDENTIFICADO','EDINHO','15/11/2025','','ALTA'),E('UH09','AR','Ar condicionado desconfigurado no controle','CONCLUIDO','EDINHO','29/11/2025','29/11/2025'),E('AREA EXTERNA','ELETRICA','Troca do controle do aquecedor do bloco Personalité','CONCLUIDO','EDINHO','25/11/2025','25/11/2025'),E('COZINHA','LAMPADA','Luminária da cozinha — troca da lâmpada','CONCLUIDO','EDINHO','18/11/2025','24/11/2025'),E('AREA EXTERNA','REPAROS','Ducha higiênica do salão de jogos e financeiro','CONCLUIDO','EDINHO','13/11/2025','21/11/2025'),E('UH26','REPAROS','Porta com dificuldade para fechar + ducha higiênica','CONCLUIDO','EDINHO','14/11/2025','17/11/2025'),E('UH22','AR','Ar condicionado sem gás','CONCLUIDO','EDINHO','13/11/2025','13/11/2025'),E('COZINHA','INSTALAÇÃO','Instalação do ventilador da cozinha','CONCLUIDO','EDINHO','12/11/2025','12/11/2025'),E('COZINHA','PINTURA','Pintura da entrada da cozinha','CONCLUIDO','EDINHO','11/11/2025','11/11/2025'),E('COZINHA','REFRIGEREÇÃO','Gás colocado na geladeira da cozinha','CONCLUIDO','EDINHO','07/11/2025','07/11/2025'),E('UH32','TELEFONE','Telefone novo UH32','CONCLUIDO','EDINHO','06/11/2025','06/11/2025'),E('PISCINA','LIMPEZA','Limpeza das piscinas e espreguiçadeiras','CONCLUIDO','ANGELO','14/11/2025','14/11/2025'),E('UH17','AR','Controle do ar desconfigurado','CONCLUIDO','LUIZ ARILHO','19/11/2025','19/11/2025'),E('SALÃO DE CAFE','VIDROS','Vidros do restaurante','CONCLUIDO','GABRIEL','05/11/2025','05/11/2025')],
+[P('UH21','MANUTENÇÃO','Investigação e reparo do mau cheiro (esgoto) — UH21','INDENTIFICADO','EDINHO','01/12/2025','','ALTA'),P('UH22','MANUTENÇÃO','Investigação e reparo do mau cheiro (esgoto) — UH22','INDENTIFICADO','EDINHO','01/12/2025','','ALTA'),P('PISCINA','LAMPADA','LED de frente à piscina queimado','INDENTIFICADO','','09/12/2025','','MEDIA'),E('AREA EXTERNA','INSTALAÇÃO','Luminárias instaladas na área do Personalité','CONCLUIDO','TODOS','17/12/2025','17/12/2025'),E('UH25','TELEFONE','Telefone não funciona','CONCLUIDO','EDINHO','11/12/2025','15/12/2025'),E('UH41','REPAROS','Cofre colocado','CONCLUIDO','EDINHO','12/12/2025','12/12/2025'),E('UH39','AR','Ar condicionado pingando','CONCLUIDO','EDINHO','11/12/2025','11/12/2025'),E('UH40','AR','Ar condicionado pingando','CONCLUIDO','EDINHO','11/12/2025','11/12/2025'),E('MANUTENÇÃO','REPAROS','Troca do temporizador do Personalité','CONCLUIDO','EDINHO','10/12/2025','10/12/2025'),E('UH14','REPAROS','Chuveiro não esquentando — problema no boiler','CONCLUIDO','EDINHO','02/12/2025','02/12/2025'),E('PISCINA','LIMPEZA','Limpeza das piscinas e espreguiçadeiras','CONCLUIDO','ANGELO','03/12/2025','03/12/2025'),E('UH27','REPAROS','Mesa de cabeceira com rodinha quebrada','CONCLUIDO','MAURILHO','15/12/2025','16/12/2025'),E('UH25','REPAROS','Blindex do box do banheiro solto','CONCLUIDO','MAURILHO','16/12/2025','16/12/2025'),E('AREA EXTERNA','LAMPADA','Lâmpada do salão de jogos piscando (2 LED driver trocados)','CONCLUIDO','MAURILHO','11/12/2025','12/12/2025'),E('RECEPÇÃO','REPAROS','Portão da recepção com defeito (não fechava sozinho)','CONCLUIDO','MAURILHO','08/12/2025','08/12/2025'),E('UH31','CHUVEIRO','Chuveiro não esquentando','CONCLUIDO','RAFAEL','17/12/2025','17/12/2025')],
+[P('SPA','OBRA','Mudança do SPA + reativação da sauna','CONCLUIDO','TODOS','','','ALTA'),P('UH07','REPAROS','Rejunte do box / pintura do teto / troca do alisar / troca do vidro','CONCLUIDO','RAFAEL','24/01/2026','30/01/2026','MEDIA'),E('UH20','PINTURA','Pintura do teto do banheiro e das paredes','CONCLUIDO','EDINHO','25/01/2026','28/01/2026')],
+];
+
+// ─── HELPERS ──────────────────────────────────────────────────────────────────
+function prioClass(v){return v==='ALTA'?'p-alta':v==='MEDIA'?'p-media':'p-baixa'}
+function prioLabel(v){return v==='ALTA'?'● ALTA':v==='MEDIA'?'● MÉDIA':'● BAIXA'}
+function stClass(v){const u=(v||'').toUpperCase();return u.includes('CONC')?'st-c':u.includes('AND')?'st-a':u.includes('IDENT')?'st-i':'st-d'}
+function stLabel(v){const u=(v||'').toUpperCase();return u.includes('CONC')?'✓ Concluído':u.includes('AND')?'⟳ Andamento':u.includes('IDENT')?'⚑ Identificado':v||'—'}
+function svClass(v){const u=(v||'').toUpperCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'');const m={REPAROS:'REPAROS',LIMPEZA:'LIMPEZA',AR:'AR',LAMPADA:'LAMPADA',TV:'TV',PINTURA:'PINTURA',INSTALACAO:'INSTALACAO',VIDROS:'VIDROS',OBRA:'OBRA',ELETRICA:'ELETRICA',REFRIGER:'REFRIGERECAO',CHUVEIRO:'CHUVEIRO',REFORMA:'REFORMA',MANUT:'MANUTENCAO',TELEFONE:'TELEFONE',JARDIM:'JARDIM'};const k=Object.keys(m).find(k=>u.includes(k));return k?`sv-${m[k]}`:'sv-default';}
+function rowClass(r){const done=(r.stat||'').toUpperCase().includes('CONC');if(r.prio==='ALTA'&&!done)return'alta-row';if(r.prio==='MEDIA'&&!done)return'media-row';return'';}
+function prioPriority(r){const done=(r.stat||'').toUpperCase().includes('CONC');const p=r.prio==='ALTA'?0:r.prio==='MEDIA'?1:2;return done?10+p:p;}
+
+// ─── KPIs ─────────────────────────────────────────────────────────────────────
+function computeKPIs(){
+  let tot=0,c=0,a=0,id=0,plan=0;
+  DATA.forEach(m=>m.forEach(r=>{tot++;const u=(r.stat||'').toUpperCase();if(u.includes('CONC'))c++;else if(u.includes('AND'))a++;else if(u.includes('IDENT'))id++;if(r.tipo==='PLANEJADO')plan++;}));
+  document.getElementById('kt').textContent=tot;
+  document.getElementById('kc').textContent=c;
+  document.getElementById('kc-p').textContent=tot?Math.round(c/tot*100)+'% do total':'';
+  document.getElementById('ka').textContent=a;
+  document.getElementById('ki').textContent=id;
+  document.getElementById('kp').textContent=plan;
+  document.getElementById('hdr-badge').textContent=tot+' registros';
+}
+
+// ─── BUILD UI ─────────────────────────────────────────────────────────────────
+function buildUI(){
+  const tabsEl=document.getElementById('tabs');
+  const panelsEl=document.getElementById('panels');
+  tabsEl.innerHTML='';panelsEl.innerHTML='';
+  if(!MONTHS.length){document.getElementById('empty-state').style.display='flex';return;}
+  document.getElementById('empty-state').style.display='none';
+  MONTHS.forEach((month,mi)=>{
+    tabsEl.appendChild(makeTab(month,mi));
+    const p=document.createElement('div');
+    p.className='panel'+(mi===activeMonth?' active':'');
+    p.id=`panel-${mi}`;
+    p.innerHTML=buildPanelHTML(mi);
+    panelsEl.appendChild(p);
+    renderBothTables(mi);
+  });
+}
+
+function makeTab(month,mi){
+  const t=document.createElement('div');
+  t.className='tab'+(mi===activeMonth?' active':'');
+  t.id=`tab-${mi}`;
+  const pl=(DATA[mi]||[]).filter(r=>r.tipo==='PLANEJADO').length;
+  const em=(DATA[mi]||[]).filter(r=>r.tipo==='EMERGENCIAL').length;
+  t.innerHTML=`<div class="tab-inner" onclick="switchTab(${mi})">${month} <span class="tab-cnt" id="tab-cnt-${mi}">${pl}P · ${em}E</span></div><button class="tab-del" title="Excluir mês" onclick="askDelMonth(event,${mi})">✕</button>`;
+  return t;
+}
+
+function buildPanelHTML(mi){
+  return`<div class="pdf-header">Gestão de Manutenção · Hotel · Búzios</div><div class="pdf-subheader">Relatório: ${MONTHS[mi]} · Gerado em ${new Date().toLocaleDateString('pt-BR')}</div>
+  <div class="sec-box planejado"><div class="sec-hdr"><div class="sec-title"><div class="sec-icon icon-plan">📋</div>Planejados<span class="sec-badge sb-plan" id="cnt-plan-${mi}">0</span></div><div class="sec-hdr-r"><select class="flt" onchange="filterPlan(${mi},this.value)"><option value="">Todos status</option><option value="CONCLUIDO">✓ Concluído</option><option value="ANDAMENTO">⟳ Andamento</option><option value="IDENT">⚑ Identificado</option></select><button class="btn-add-row" onclick="openModal(${mi},'PLANEJADO')">＋ Planejado</button></div></div>
+  <div class="tbl-wrap"><table><thead><tr><th class="ns" style="width:32px">#</th><th onclick="srt(${mi},'plan','prio',this)">Prioridade <span class="sort-ic">⇅</span></th><th onclick="srt(${mi},'plan','area',this)">Área <span class="sort-ic">⇅</span></th><th onclick="srt(${mi},'plan','serv',this)">Serviço <span class="sort-ic">⇅</span></th><th>Descrição</th><th onclick="srt(${mi},'plan','stat',this)">Status <span class="sort-ic">⇅</span></th><th>Funcionários</th><th onclick="srt(${mi},'plan','ini',this)">Início <span class="sort-ic">⇅</span></th><th onclick="srt(${mi},'plan','fim',this)">Prazo/Fim <span class="sort-ic">⇅</span></th><th class="ns" style="width:32px"></th></tr></thead><tbody id="tbody-plan-${mi}"></tbody></table></div></div>
+  <div class="sec-box emergencial"><div class="sec-hdr"><div class="sec-title"><div class="sec-icon icon-emrg">⚡</div>Emergenciais<span class="sec-badge sb-emrg" id="cnt-emrg-${mi}">0</span></div><div class="sec-hdr-r"><div class="sw"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg><input class="search" placeholder="Filtrar…" oninput="filterEmrg(${mi},this.value)"></div><select class="flt" onchange="filterEmrgSt(${mi},this.value)"><option value="">Todos</option><option value="CONCLUIDO">✓ Concluído</option><option value="ANDAMENTO">⟳ Andamento</option><option value="IDENT">⚑ Identificado</option></select><button class="btn-add-row" onclick="openModal(${mi},'EMERGENCIAL')">＋ Emergencial</button></div></div>
+  <div class="tbl-wrap"><table><thead><tr><th class="ns" style="width:32px">#</th><th onclick="srt(${mi},'emrg','area',this)">Área <span class="sort-ic">⇅</span></th><th onclick="srt(${mi},'emrg','serv',this)">Serviço <span class="sort-ic">⇅</span></th><th>Descrição</th><th onclick="srt(${mi},'emrg','stat',this)">Status <span class="sort-ic">⇅</span></th><th>Funcionários</th><th onclick="srt(${mi},'emrg','ini',this)">Data <span class="sort-ic">⇅</span></th><th class="ns" style="width:32px"></th></tr></thead><tbody id="tbody-emrg-${mi}"></tbody></table></div></div>`;
+}
+
+function renderBothTables(mi){renderPlan(mi);renderEmrg(mi);updateTabCnt(mi);}
+function renderPlan(mi){if(!DATA[mi])return;const rows=DATA[mi].filter(r=>r.tipo==='PLANEJADO').sort((a,b)=>prioPriority(a)-prioPriority(b));const tbody=document.getElementById(`tbody-plan-${mi}`);if(!tbody)return;tbody.innerHTML='';if(!rows.length){tbody.innerHTML='<tr class="empty-row"><td colspan="10">Nenhum serviço planejado</td></tr>';document.getElementById(`cnt-plan-${mi}`).textContent='0';return;}rows.forEach((r,i)=>{const gi=DATA[mi].indexOf(r);tbody.appendChild(makePlanRow(mi,gi,r,i+1));});document.getElementById(`cnt-plan-${mi}`).textContent=rows.length;}
+function renderEmrg(mi){if(!DATA[mi])return;const rows=DATA[mi].filter(r=>r.tipo==='EMERGENCIAL').sort((a,b)=>{const d=prioPriority(a)-prioPriority(b);return d||dateCmp(b.ini,a.ini);});const tbody=document.getElementById(`tbody-emrg-${mi}`);if(!tbody)return;tbody.innerHTML='';if(!rows.length){tbody.innerHTML='<tr class="empty-row"><td colspan="8">Nenhum serviço emergencial</td></tr>';document.getElementById(`cnt-emrg-${mi}`).textContent='0';return;}rows.forEach((r,i)=>{const gi=DATA[mi].indexOf(r);tbody.appendChild(makeEmrgRow(mi,gi,r,i+1));});document.getElementById(`cnt-emrg-${mi}`).textContent=rows.length;}
+function dateCmp(a,b){const pa=pd(a),pb=pd(b);if(!pa&&!pb)return 0;if(!pa)return 1;if(!pb)return -1;return pa-pb;}
+function pd(s){if(!s)return null;const p=s.split('/');if(p.length===3)return new Date(p[2],p[1]-1,p[0]);if(s.includes('-'))return new Date(s);return null;}
+function eCell(val,cb,wide=false){const td=document.createElement('td');const inp=document.createElement('input');inp.className='ci';inp.value=val||'';inp.placeholder='—';if(wide)inp.style.minWidth='220px';inp.onchange=e=>cb(e.target.value);td.appendChild(inp);return td;}
+
+function makePlanRow(mi,gi,r,num){
+  const tr=document.createElement('tr');tr.className=rowClass(r);
+  const n=document.createElement('td');n.className='td-n';n.textContent=num;tr.appendChild(n);
+  const ptd=document.createElement('td');ptd.className='prio-cell';ptd.innerHTML=`<span class="prio ${prioClass(r.prio)}">${prioLabel(r.prio)}</span>`;ptd.querySelector('.prio').onclick=()=>cyclePrio(mi,gi,tr,ptd);tr.appendChild(ptd);
+  tr.appendChild(eCell(r.area,v=>{DATA[mi][gi].area=v;}));
+  const sv=document.createElement('td');sv.className='sv-cell';sv.innerHTML=`<span class="sv ${svClass(r.serv)}">${r.serv||'—'}</span>`;sv.querySelector('.sv').onclick=()=>nextServ(mi,gi,sv);tr.appendChild(sv);
+  tr.appendChild(eCell(r.desc,v=>{DATA[mi][gi].desc=v;},true));
+  const stTd=document.createElement('td');stTd.className='st-cell';stTd.innerHTML=`<span class="st ${stClass(r.stat)}">${stLabel(r.stat)}</span>`;stTd.querySelector('.st').onclick=()=>cycleSt(mi,gi,tr,stTd);tr.appendChild(stTd);
+  tr.appendChild(eCell(r.func,v=>{DATA[mi][gi].func=v;}));
+  tr.appendChild(eCell(r.ini,v=>{DATA[mi][gi].ini=v;}));
+  tr.appendChild(eCell(r.fim,v=>{DATA[mi][gi].fim=v;}));
+  const dt=document.createElement('td');dt.innerHTML=`<button class="del">✕</button>`;dt.querySelector('.del').onclick=()=>{DATA[mi].splice(gi,1);renderBothTables(mi);computeKPIs();};tr.appendChild(dt);
+  return tr;
+}
+function makeEmrgRow(mi,gi,r,num){
+  const tr=document.createElement('tr');tr.className=rowClass(r);
+  const n=document.createElement('td');n.className='td-n';n.textContent=num;tr.appendChild(n);
+  tr.appendChild(eCell(r.area,v=>{DATA[mi][gi].area=v;}));
+  const sv=document.createElement('td');sv.className='sv-cell';sv.innerHTML=`<span class="sv ${svClass(r.serv)}">${r.serv||'—'}</span>`;sv.querySelector('.sv').onclick=()=>nextServ(mi,gi,sv);tr.appendChild(sv);
+  tr.appendChild(eCell(r.desc,v=>{DATA[mi][gi].desc=v;},true));
+  const stTd=document.createElement('td');stTd.className='st-cell';stTd.innerHTML=`<span class="st ${stClass(r.stat)}">${stLabel(r.stat)}</span>`;stTd.querySelector('.st').onclick=()=>cycleSt(mi,gi,tr,stTd);tr.appendChild(stTd);
+  tr.appendChild(eCell(r.func,v=>{DATA[mi][gi].func=v;}));
+  tr.appendChild(eCell(r.ini,v=>{DATA[mi][gi].ini=v;}));
+  const dt=document.createElement('td');dt.innerHTML=`<button class="del">✕</button>`;dt.querySelector('.del').onclick=()=>{DATA[mi].splice(gi,1);renderBothTables(mi);computeKPIs();};tr.appendChild(dt);
+  return tr;
+}
+
+function cyclePrio(mi,gi,tr,ptd){const next=PRIO_CYCLE[(PRIO_CYCLE.indexOf(DATA[mi][gi].prio||'BAIXA')+1)%3];DATA[mi][gi].prio=next;tr.className=rowClass(DATA[mi][gi]);const sp=ptd.querySelector('.prio');sp.className=`prio ${prioClass(next)}`;sp.textContent=prioLabel(next);}
+function cycleSt(mi,gi,tr,stTd){const cur=(DATA[mi][gi].stat||'').toUpperCase();const idx=ST_CYCLE.findIndex(s=>cur.includes(s.substring(0,4)));const next=ST_CYCLE[(idx+1)%3];DATA[mi][gi].stat=next;tr.className=rowClass(DATA[mi][gi]);const sp=stTd.querySelector('.st');sp.className=`st ${stClass(next)}`;sp.textContent=stLabel(next);computeKPIs();}
+function nextServ(mi,gi,svtd){const cur=DATA[mi][gi].serv||'';const next=SERVICOS[(SERVICOS.indexOf(cur)+1)%SERVICOS.length];DATA[mi][gi].serv=next;const sp=svtd.querySelector('.sv');sp.className=`sv ${svClass(next)}`;sp.textContent=next;}
+
+function switchTab(mi){activeMonth=mi;document.querySelectorAll('.tab').forEach((t,i)=>t.classList.toggle('active',i===mi));document.querySelectorAll('.panel').forEach((p,i)=>p.classList.toggle('active',i===mi));updateFooter(mi);}
+function updateTabCnt(mi){const el=document.getElementById(`tab-cnt-${mi}`);if(!el)return;const pl=(DATA[mi]||[]).filter(r=>r.tipo==='PLANEJADO').length;const em=(DATA[mi]||[]).filter(r=>r.tipo==='EMERGENCIAL').length;el.textContent=`${pl}P · ${em}E`;}
+function updateFooter(mi){const m=DATA[mi]||[];const ok=m.filter(r=>(r.stat||'').toUpperCase().includes('CONC')).length;document.getElementById('ftr').textContent=`${MONTHS[mi]} · ${m.length} registros · ${ok} concluídos`;}
+
+function askDelMonth(e,mi){e.stopPropagation();delMonthIdx=mi;const name=MONTHS[mi];const total=(DATA[mi]||[]).length;document.getElementById('del-month-name').textContent=name;document.getElementById('del-month-detail').textContent=total>0?`⚠ ${total} registro${total>1?'s':''} ser${total>1?'ão':' á'} perdido${total>1?'s':''} permanentemente.`:`Este mês está vazio (0 registros).`;document.getElementById('ov-del-month').classList.add('show');}
+function closeDelMonth(){document.getElementById('ov-del-month').classList.remove('show');delMonthIdx=null;}
+function confirmDelMonth(){if(delMonthIdx===null)return;const mi=delMonthIdx;MONTHS.splice(mi,1);DATA.splice(mi,1);closeDelMonth();activeMonth=Math.min(activeMonth,Math.max(0,MONTHS.length-1));buildUI();if(MONTHS.length)switchTab(activeMonth);computeKPIs();pushToFirebase();}
+
+function filterEmrg(mi,q){q=q.toLowerCase();document.querySelectorAll(`#tbody-emrg-${mi} tr`).forEach(tr=>{if(tr.classList.contains('empty-row'))return;const txt=[...tr.querySelectorAll('input.ci')].map(i=>i.value).join(' ')+[...tr.querySelectorAll('.sv,.st')].map(s=>s.textContent).join(' ');tr.style.display=txt.toLowerCase().includes(q)?'':'none';});}
+function filterEmrgSt(mi,val){document.querySelectorAll(`#tbody-emrg-${mi} tr`).forEach(tr=>{if(tr.classList.contains('empty-row'))return;if(!val){tr.style.display='';return;}tr.style.display=(tr.querySelector('.st')?.textContent||'').toUpperCase().includes(val)?'':'none';});}
+function filterPlan(mi,val){document.querySelectorAll(`#tbody-plan-${mi} tr`).forEach(tr=>{if(tr.classList.contains('empty-row'))return;if(!val){tr.style.display='';return;}tr.style.display=(tr.querySelector('.st')?.textContent||'').toUpperCase().includes(val)?'':'none';});}
+function srt(mi,sec,field,th){const key=`${mi}-${sec}-${field}`;const asc=sortDir[key]!=='asc';sortDir[key]=asc?'asc':'desc';document.querySelectorAll(`#panel-${mi} thead th .sort-ic`).forEach(ic=>ic.textContent='⇅');const ic=th.querySelector('.sort-ic');if(ic)ic.textContent=asc?'↑':'↓';DATA[mi].sort((a,b)=>{if(a.tipo!==b.tipo)return a.tipo==='PLANEJADO'?-1:1;const av=(a[field]||'').toLowerCase(),bv=(b[field]||'').toLowerCase();return asc?av.localeCompare(bv,'pt'):bv.localeCompare(av,'pt');});renderBothTables(mi);}
+
+function openNewMonth(){const now=new Date();document.getElementById('nm-picker').value=`${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}`;document.getElementById('ov-month').classList.add('show');setTimeout(()=>document.getElementById('nm-picker').focus(),120);}
+function closeNewMonth(e){if(!e||e.target===document.getElementById('ov-month'))document.getElementById('ov-month').classList.remove('show');}
+function confirmNewMonth(){const val=document.getElementById('nm-picker').value;if(!val)return;const[year,month]=val.split('-');const name=`${MONTHS_PT[parseInt(month)-1]} ${year}`;if(MONTHS.includes(name)){alert(`O mês "${name}" já existe.`);return;}MONTHS.push(name);DATA.push([]);const mi=MONTHS.length-1;document.getElementById('empty-state').style.display='none';const t=makeTab(name,mi);document.getElementById('tabs').appendChild(t);const p=document.createElement('div');p.className='panel';p.id=`panel-${mi}`;p.innerHTML=buildPanelHTML(mi);document.getElementById('panels').appendChild(p);renderBothTables(mi);document.getElementById('ov-month').classList.remove('show');switchTab(mi);pushToFirebase();}
+
+function openModal(mi,tipo){modalTarget=mi;document.getElementById('m-tipo').value=tipo;document.getElementById('mod-title').textContent=tipo==='PLANEJADO'?'📋 Novo Serviço Planejado':'⚡ Novo Emergencial';onTipoChange();['m-area','m-desc','m-func','m-ini','m-fim'].forEach(id=>document.getElementById(id).value='');document.getElementById('m-serv').value='REPAROS';document.getElementById('m-prio').value='MEDIA';document.getElementById('m-stat').value='INDENTIFICADO';document.getElementById('ov').classList.add('show');}
+function onTipoChange(){document.getElementById('m-fim-row').style.display=document.getElementById('m-tipo').value==='PLANEJADO'?'':'none';}
+function ovClose(e){if(!e||e.target===document.getElementById('ov')){document.getElementById('ov').classList.remove('show');modalTarget=null;}}
+function addRecord(){if(modalTarget===null)return;const tipo=document.getElementById('m-tipo').value;DATA[modalTarget].unshift({tipo,prio:document.getElementById('m-prio').value,area:document.getElementById('m-area').value,serv:document.getElementById('m-serv').value,desc:document.getElementById('m-desc').value,stat:document.getElementById('m-stat').value,func:document.getElementById('m-func').value,ini:document.getElementById('m-ini').value,fim:tipo==='PLANEJADO'?document.getElementById('m-fim').value:''});renderBothTables(modalTarget);computeKPIs();document.getElementById('ov').classList.remove('show');modalTarget=null;}
+
+function saveAll(){pushToFirebase();}
+
+function exportCSV(){const m=DATA[activeMonth]||[];const hdr=['TIPO','PRIORIDADE','ÁREA','SERVIÇO','DESCRIÇÃO','STATUS','FUNCIONÁRIOS','INÍCIO','FIM'];const csv=[hdr,...m.map(r=>[r.tipo,r.prio,r.area,r.serv,r.desc,r.stat,r.func,r.ini,r.fim])].map(r=>r.map(c=>`"${(c||'').replace(/"/g,'""')}"`).join(',')).join('\n');const a=document.createElement('a');a.href=URL.createObjectURL(new Blob(['\ufeff'+csv],{type:'text/csv;charset=utf-8;'}));a.download=`${MONTHS[activeMonth].replace(/\//g,'-')}.csv`;a.click();}
+
+function exportPDF(){document.querySelectorAll('.panel').forEach((p,i)=>{p.style.display=i===activeMonth?'flex':'none';});const title=document.title;document.title=`Manutenção · ${MONTHS[activeMonth]} · Búzios`;window.print();document.title=title;document.querySelectorAll('.panel').forEach((p,i)=>{p.style.display='';if(i===activeMonth)p.classList.add('active');else p.classList.remove('active');});}
+
+// ─── INIT ─────────────────────────────────────────────────────────────────────
+(function init(){
+  // Credenciais do Firebase já configuradas
+  const cfg = {
+    apiKey: "AIzaSyD5iD_RrPkfSW4_cgMbysEFKDpDh5_4i80",
+    authDomain: "hotel-manutencao.firebaseapp.com",
+    databaseURL: "https://hotel-manutencao-default-rtdb.firebaseio.com",
+    projectId: "hotel-manutencao",
+    storageBucket: "hotel-manutencao.firebasestorage.app",
+    messagingSenderId: "368535658005",
+    appId: "1:368535658005:web:5759f188a29710f7db781c"
+  };
+  document.getElementById('setup-screen').classList.add('hidden');
+  initFirebase(cfg);
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,13 @@
+# Dependencias (recriadas com npm install)
+node_modules/
+
+# Config local do Claude Code
+.claude/settings.local.json
+
+# Lixo de sistema operacional
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Logs
+*.log

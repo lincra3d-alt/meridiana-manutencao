@@ -1,0 +1,467 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Gestão de Manutenção · Hotel</title>
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@400;600;700&family=Jost:wght@300;400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="style.css">
+<style>
+.pdf-chk{display:inline-flex;align-items:center;gap:6px;padding:6px 11px;background:var(--s4);border:1px solid var(--border);border-radius:14px;font-size:11.5px;cursor:pointer;user-select:none;transition:all .15s}
+.pdf-chk:hover{background:var(--s3);border-color:var(--border2)}
+.pdf-chk input{accent-color:var(--gold);cursor:pointer;margin:0}
+.pdf-chk:has(input:checked){background:rgba(196,154,60,.12);border-color:rgba(196,154,60,.4);color:var(--gold2)}
+.pendente-row{background:rgba(255,170,0,.05) !important;border-left:3px solid #f5a623 !important}
+.pendente-row td:first-child::after{content:"PEND";display:inline-block;margin-left:4px;background:#f5a623;color:#1a1408;font-size:8px;font-weight:700;padding:1px 4px;border-radius:3px;letter-spacing:.4px;vertical-align:middle}
+.btn-confirm{background:rgba(46,160,67,.15);border:1px solid rgba(46,160,67,.4);color:#3fb950;border-radius:5px;padding:3px 7px;cursor:pointer;font-size:11px;font-weight:600;margin-right:3px;transition:all .15s}
+.btn-confirm:hover{background:rgba(46,160,67,.3);color:#7ee787}
+.btn-link-pub{display:inline-flex;align-items:center;gap:5px;background:rgba(56,170,212,.13);border:1px solid rgba(56,170,212,.35);color:#58c0e0;padding:5px 11px;border-radius:6px;font-size:11px;font-weight:500;cursor:pointer;transition:all .15s}
+.btn-link-pub:hover{background:rgba(56,170,212,.25);color:#7dd3ed}
+.link-box{background:var(--s4);border:1px solid var(--border);border-radius:8px;padding:11px 13px;font-family:monospace;font-size:12px;word-break:break-all;color:var(--gold2);margin-bottom:10px}
+.qr-img{display:block;margin:14px auto;background:#fff;padding:10px;border-radius:8px;max-width:220px}
+#landing{position:fixed;inset:0;z-index:9999;background:radial-gradient(ellipse at top,#11151f 0%,#07090f 70%);display:flex;flex-direction:column;align-items:center;justify-content:center;padding:40px 24px;overflow-y:auto}
+#landing.hidden{display:none}
+.lp-logo{font-family:'Cormorant Garamond',serif;font-weight:700;font-size:clamp(38px,7vw,72px);color:var(--gold2);letter-spacing:6px;text-align:center;line-height:1;margin-bottom:8px;text-shadow:0 4px 30px rgba(196,154,60,.15)}
+.lp-sub{font-family:'Jost',sans-serif;font-size:11px;letter-spacing:6px;color:var(--muted);text-transform:uppercase;text-align:center;margin-bottom:6px}
+.lp-divider{width:60px;height:1px;background:linear-gradient(90deg,transparent,var(--gold),transparent);margin:22px auto 28px}
+.lp-prompt{font-family:'Jost',sans-serif;font-size:12px;color:var(--muted2);letter-spacing:2px;text-transform:uppercase;text-align:center;margin-bottom:28px}
+.lp-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:18px;max-width:920px;width:100%}
+.lp-card{background:linear-gradient(135deg,var(--s1) 0%,var(--s3) 100%);border:1px solid var(--border2);border-radius:14px;padding:28px 22px;cursor:pointer;text-align:center;transition:all .25s;position:relative;overflow:hidden}
+.lp-card::before{content:"";position:absolute;inset:0;background:linear-gradient(135deg,rgba(196,154,60,0) 0%,rgba(196,154,60,.07) 100%);opacity:0;transition:opacity .25s}
+.lp-card:hover{transform:translateY(-4px);border-color:var(--gold);box-shadow:0 16px 40px rgba(0,0,0,.4),0 0 0 1px rgba(196,154,60,.3)}
+.lp-card:hover::before{opacity:1}
+.lp-card-icon{font-size:34px;margin-bottom:14px;filter:grayscale(.2)}
+.lp-card-name{font-family:'Cormorant Garamond',serif;font-size:21px;font-weight:600;color:var(--text);margin-bottom:6px}
+.lp-card-tag{font-size:10px;letter-spacing:2px;color:var(--muted);text-transform:uppercase}
+.lp-card.active{border-color:var(--gold);box-shadow:0 0 0 1px var(--gold) inset}
+.lp-footer{margin-top:36px;font-size:10px;color:var(--muted);letter-spacing:1.5px;text-transform:uppercase;text-align:center;opacity:.6}
+</style>
+</head>
+<body>
+
+<!-- ── LANDING: Seleção de Unidade ── -->
+<div id="landing">
+  <div class="lp-sub">Sistema de Gestão de Manutenção</div>
+  <div class="lp-logo">GRUPO MERIDIANA</div>
+  <div class="lp-divider"></div>
+  <div class="lp-prompt">Selecione a unidade</div>
+  <div class="lp-grid" id="lp-grid"></div>
+  <div class="lp-footer">Búzios · Rio de Janeiro</div>
+</div>
+
+<!-- ── PIN / ACESSO RESTRITO ── -->
+<div id="pin-screen" class="pin-screen">
+  <div class="pin-box">
+    <div class="pin-icon">🔒</div>
+    <div class="pin-logo">GRUPO MERIDIANA</div>
+    <div class="pin-sub" id="pin-sub">Acesso restrito à supervisão</div>
+    <input class="pin-input" id="pin-1" type="password" inputmode="numeric" maxlength="10" placeholder="PIN de acesso" onkeydown="if(event.key==='Enter')submitPin()" autocomplete="off">
+    <input class="pin-input" id="pin-2" type="password" inputmode="numeric" maxlength="10" placeholder="Confirmar PIN" style="display:none" onkeydown="if(event.key==='Enter')submitPin()" autocomplete="off">
+    <div class="pin-err" id="pin-err"></div>
+    <button class="btn-setup" id="pin-btn" onclick="submitPin()">Entrar</button>
+    <button class="pin-alt" id="pin-alt" onclick="pinToggleRecover()">Esqueci minha senha</button>
+    <button class="pin-back" onclick="pinCancel()">← Voltar à seleção de unidade</button>
+  </div>
+</div>
+
+<!-- ── MODAL: Administração de Senhas ── -->
+<div class="ov" id="ov-admin" onclick="if(event.target===this)closeAdmin()">
+  <div class="modal" style="width:400px;max-width:95vw">
+    <h3>🔑 Administração de Senhas</h3>
+    <div id="adm-msg" class="adm-msg"></div>
+
+    <div class="adm-sec">
+      <div class="adm-sec-title">PIN da unidade · <span id="adm-unit-name" style="color:var(--gold2)">—</span></div>
+      <p class="adm-hint">Define o PIN exclusivo desta unidade. Exige a senha master.</p>
+      <div class="mrow"><label>Senha Master</label><input class="minput" id="adm-unit-master" type="password" inputmode="numeric" autocomplete="off" placeholder="Senha master (admin)"></div>
+      <div class="mrow"><label>Novo PIN da unidade</label><input class="minput" id="adm-unit-new" type="password" inputmode="numeric" autocomplete="off" placeholder="Novo PIN"></div>
+      <div class="mrow"><label>Confirmar PIN</label><input class="minput" id="adm-unit-confirm" type="password" inputmode="numeric" autocomplete="off" placeholder="Repita o PIN"></div>
+      <button class="btn btn-gold btn-xs" style="width:100%" onclick="adminChangeUnitPin()">Salvar PIN da unidade</button>
+    </div>
+
+    <div class="adm-sec">
+      <div class="adm-sec-title">Senha Master (admin)</div>
+      <p class="adm-hint">Troca a senha master que abre todas as unidades. Exige a senha master atual.</p>
+      <div class="mrow"><label>Senha Master Atual</label><input class="minput" id="adm-mst-cur" type="password" inputmode="numeric" autocomplete="off" placeholder="Senha master atual"></div>
+      <div class="mrow"><label>Nova Senha Master</label><input class="minput" id="adm-mst-new" type="password" inputmode="numeric" autocomplete="off" placeholder="Nova senha master"></div>
+      <div class="mrow"><label>Confirmar Nova Senha</label><input class="minput" id="adm-mst-confirm" type="password" inputmode="numeric" autocomplete="off" placeholder="Repita a nova senha"></div>
+      <button class="btn btn-gold btn-xs" style="width:100%" onclick="adminChangeMaster()">Salvar nova senha master</button>
+    </div>
+
+    <div class="mactions">
+      <button class="btn btn-ghost btn-xs" onclick="closeAdmin()">Fechar</button>
+    </div>
+  </div>
+</div>
+
+<!-- ── SETUP SCREEN (apenas se Firebase não configurado) ── -->
+<div id="setup-screen">
+  <div class="setup-box">
+    <h2>🔧 Configurar Firebase</h2>
+    <p>Cole aqui as credenciais do seu projeto Firebase para que todos os funcionários compartilhem os mesmos dados em tempo real.</p>
+    <div class="setup-steps">
+      <b>Como obter as credenciais:</b><br>
+      1. Acesse <a href="https://console.firebase.google.com" target="_blank">console.firebase.google.com</a><br>
+      2. Crie um projeto → clique em <b>"Web"</b> (&lt;/&gt;)<br>
+      3. Copie o objeto <b>firebaseConfig</b> que aparecer<br>
+      4. Cole cada campo abaixo e clique em Conectar
+    </div>
+    <div class="setup-field"><label>API Key</label><input class="setup-input" id="cfg-apiKey" placeholder="AIzaSy..."></div>
+    <div class="setup-field"><label>Auth Domain</label><input class="setup-input" id="cfg-authDomain" placeholder="meu-projeto.firebaseapp.com"></div>
+    <div class="setup-field"><label>Database URL</label><input class="setup-input" id="cfg-dbURL" placeholder="https://meu-projeto-default-rtdb.firebaseio.com"></div>
+    <div class="setup-field"><label>Project ID</label><input class="setup-input" id="cfg-projectId" placeholder="meu-projeto"></div>
+    <div class="setup-field"><label>App ID</label><input class="setup-input" id="cfg-appId" placeholder="1:123456789:web:abc..."></div>
+    <div class="setup-err" id="setup-err">❌ Preencha todos os campos corretamente.</div>
+    <button class="btn-setup" onclick="connectFirebase()">🔗 Conectar ao Firebase</button>
+  </div>
+</div>
+
+<!-- Loading bar -->
+<div id="loading-bar"></div>
+
+<!-- ── MODAL: Novo Registro ── -->
+<div class="ov" id="ov" onclick="ovClose(event)">
+  <div class="modal">
+    <h3 id="mod-title">Novo Registro</h3>
+    <div class="mrow"><label>Tipo</label>
+      <select class="msel" id="m-tipo" onchange="onTipoChange()">
+        <option value="EMERGENCIAL">⚡ Emergencial</option>
+        <option value="PLANEJADO">📋 Planejado</option>
+      </select>
+    </div>
+    <div class="mrow"><label id="m-area-lbl">Quarto / Área</label><input class="minput" id="m-area" placeholder="ex: UH15, COZINHA, PISCINA…"><select class="msel" id="m-area-sel" style="display:none" onchange="onAreaSelChange()"></select></div>
+    <div class="mrow"><label>Serviço</label>
+      <select class="msel" id="m-serv">
+        <option>REPAROS</option><option>LIMPEZA</option><option>AR</option><option>LAMPADA</option>
+        <option>TV</option><option>PINTURA</option><option>INSTALAÇÃO</option><option>VIDROS</option>
+        <option>OBRA</option><option>ELETRICA</option><option>REFRIGEREÇÃO</option><option>CHUVEIRO</option>
+        <option>REFORMA</option><option>MANUTENÇÃO</option><option>TELEFONE</option><option>JARDIM</option>
+      </select>
+    </div>
+    <div class="mrow"><label>Descrição</label><input class="minput" id="m-desc" placeholder="Descreva o serviço…"></div>
+    <div class="mrow" id="m-prio-row"><label>Prioridade</label>
+      <select class="msel" id="m-prio">
+        <option value="ALTA">🔴 Alta</option>
+        <option value="MEDIA" selected>🟠 Média</option>
+        <option value="BAIXA">🔵 Baixa</option>
+      </select>
+    </div>
+    <div class="mrow"><label>Funcionários</label><input class="minput" id="m-func" placeholder="ex: ANDRE, EDINHO…"></div>
+    <div class="mrow"><label>Data Identificado</label><input class="minput" id="m-dtid" type="date"></div>
+    <div class="mrow"><label>Data Início</label><input class="minput" id="m-ini" type="date"></div>
+    <div class="mrow" id="m-fim-row"><label>Prazo / Data Fim</label><input class="minput" id="m-fim" type="date"></div>
+    <div class="mrow"><label>Status</label>
+      <select class="msel" id="m-stat">
+        <option value="INDENTIFICADO">⚑ Identificado</option>
+        <option value="ANDAMENTO">⟳ Em Andamento</option>
+        <option value="CONCLUIDO">✓ Concluído</option>
+      </select>
+    </div>
+    <div class="mactions">
+      <button class="btn btn-ghost btn-xs" onclick="ovClose()">Cancelar</button>
+      <button class="btn btn-gold btn-xs" onclick="addRecord()">Adicionar</button>
+    </div>
+  </div>
+</div>
+
+<!-- ── MODAL: Novo Mês ── -->
+<div class="ov" id="ov-month" onclick="closeNewMonth(event)">
+  <div class="modal" style="max-width:320px">
+    <h3>📅 Novo Mês</h3>
+    <div class="mrow"><label>Selecione o Mês e Ano</label>
+      <input class="minput" id="nm-picker" type="month" style="cursor:pointer">
+    </div>
+    <div id="nm-pending-box" style="display:none;margin-top:4px;background:var(--s4);border:1px solid var(--border2);border-radius:8px;padding:11px 13px">
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px">
+        <span style="font-size:15px">⚑</span>
+        <span id="nm-pending-txt" style="font-size:12px;color:var(--text);font-weight:500"></span>
+      </div>
+      <label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-size:12px;color:var(--muted2)">
+        <input type="checkbox" id="nm-transfer-chk" checked style="width:15px;height:15px;accent-color:var(--gold);cursor:pointer">
+        Transferir serviços pendentes para o novo mês
+      </label>
+    </div>
+    <p id="nm-empty-hint" style="font-size:11px;color:var(--muted);margin-top:6px;line-height:1.6">O mês será criado vazio. Adicione serviços depois.</p>
+    <div class="mactions">
+      <button class="btn btn-ghost btn-xs" onclick="closeNewMonth()">Cancelar</button>
+      <button class="btn btn-gold btn-xs" onclick="confirmNewMonth()">Criar Mês</button>
+    </div>
+  </div>
+</div>
+
+<!-- ── MODAL: Seletor de Serviço ── -->
+<div class="ov" id="ov-serv-pick">
+  <div class="modal" style="width:480px;max-width:95vw">
+    <h3>Alterar Serviço</h3>
+    <p style="font-size:11px;color:var(--muted2);margin-bottom:6px">Atual: <span id="sp-current" class="sv sv-default" style="margin-left:4px">—</span></p>
+    <p style="font-size:10.5px;color:var(--muted);margin-bottom:12px">Selecione o novo serviço:</p>
+    <div id="sp-grid" style="display:flex;flex-wrap:wrap;gap:8px;max-height:200px;overflow-y:auto;padding:2px"></div>
+    <div id="sp-create-row" style="display:flex;gap:8px;margin-top:12px;padding-top:12px;border-top:1px solid var(--border)">
+      <input class="minput" id="sp-new-inp" placeholder="Novo serviço…" style="flex:1;font-size:12px;padding:6px 10px;text-transform:uppercase" onkeydown="if(event.key==='Enter')addServFromPick()">
+      <button class="btn btn-ghost btn-xs" onclick="addServFromPick()">＋ Criar</button>
+    </div>
+    <div id="sp-confirm" style="display:none;margin-top:16px;background:var(--s4);border:1px solid var(--border2);border-radius:8px;padding:12px 14px">
+      <p style="font-size:12px;color:var(--text);margin-bottom:10px">Alterar para <span id="sp-new-name" class="sv sv-default" style="margin:0 4px">—</span>?</p>
+      <div style="display:flex;gap:8px;justify-content:flex-end">
+        <button class="btn btn-ghost btn-xs" onclick="cancelServPick()">Cancelar</button>
+        <button class="btn btn-gold btn-xs" onclick="confirmServPick()">✓ Confirmar</button>
+      </div>
+    </div>
+    <div class="mactions" id="sp-actions" style="margin-top:16px">
+      <button class="btn btn-ghost btn-xs" onclick="closeServPick()">Fechar</button>
+    </div>
+  </div>
+</div>
+
+<!-- ── MODAL: Converter Tipo de Serviço ── -->
+<div class="ov" id="ov-convert">
+  <div class="confirm-modal" style="border-color:rgba(196,154,60,.3)">
+    <div class="confirm-icon">⇄</div>
+    <h3 style="color:var(--gold)">Mover Registro?</h3>
+    <p>Registro: <strong id="conv-info">—</strong></p>
+    <span class="warn-detail" id="conv-detail" style="color:var(--info2);background:var(--info3);border-color:rgba(56,170,212,.2)"></span>
+    <p style="font-size:11px;color:var(--muted)">O registro será movido e a tabela será atualizada.</p>
+    <div class="confirm-actions" style="margin-top:20px">
+      <button class="btn btn-ghost btn-xs" onclick="closeConvert()">Cancelar</button>
+      <button class="btn btn-gold btn-xs" onclick="confirmConvert()">⇄ Mover</button>
+    </div>
+  </div>
+</div>
+
+<!-- ── MODAL: Confirmar Exclusão de Registro ── -->
+<div class="ov" id="ov-del-row">
+  <div class="confirm-modal">
+    <div class="confirm-icon">🗑️</div>
+    <h3>Excluir Registro?</h3>
+    <p>Registro: <strong id="del-row-info">—</strong></p>
+    <span class="warn-detail" id="del-row-desc"></span>
+    <p style="font-size:11px;color:var(--muted)">Esta ação não pode ser desfeita.</p>
+    <div class="confirm-actions" style="margin-top:20px">
+      <button class="btn btn-ghost btn-xs" onclick="closeDelRow()">Cancelar</button>
+      <button class="btn btn-danger btn-xs" onclick="confirmDelRowAction()">✕ Excluir</button>
+    </div>
+  </div>
+</div>
+
+<!-- ── MODAL: Descrição Completa ── -->
+<div class="ov" id="ov-desc" onclick="closeDesc(event)">
+  <div class="modal" style="width:500px;max-width:95vw">
+    <h3 id="desc-modal-title">Descrição Completa</h3>
+    <div class="mrow">
+      <label>Texto Completo</label>
+      <textarea class="minput" id="desc-area" rows="6" style="resize:vertical;min-height:120px;line-height:1.6" placeholder="Descreva o serviço…"></textarea>
+    </div>
+    <div class="mactions">
+      <button class="btn btn-ghost btn-xs" onclick="closeDescBtn()">Cancelar</button>
+      <button class="btn btn-gold btn-xs" onclick="saveDesc()">✓ Salvar</button>
+    </div>
+  </div>
+</div>
+
+<!-- ── MODAL: Gerenciar Serviços ── -->
+<div class="ov" id="ov-servicos">
+  <div class="modal" style="width:440px;max-width:95vw;max-height:85vh">
+    <h3>⚙ Gerenciar Serviços</h3>
+    <p style="font-size:11px;color:var(--muted2);margin-bottom:14px;line-height:1.6">Serviços padrão não podem ser removidos. Adicione serviços personalizados abaixo.</p>
+    <div id="serv-list" style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:16px;max-height:300px;overflow-y:auto;padding:2px"></div>
+    <div style="display:flex;gap:8px;margin-bottom:6px">
+      <input class="minput" id="new-serv-inp" placeholder="Nome do novo serviço…" style="flex:1;text-transform:uppercase" onkeydown="if(event.key==='Enter')addNewServico()">
+      <button class="btn btn-gold btn-xs" onclick="addNewServico()">＋ Adicionar</button>
+    </div>
+    <div class="mactions">
+      <button class="btn btn-ghost btn-xs" onclick="closeServicos()">Fechar</button>
+    </div>
+  </div>
+</div>
+
+<!-- ── MODAL: Gerenciar Destinos (Viagem) ── -->
+<div class="ov" id="ov-destinos">
+  <div class="modal" style="width:440px;max-width:95vw;max-height:85vh">
+    <h3>⚙ Gerenciar Destinos</h3>
+    <p style="font-size:11px;color:var(--muted2);margin-bottom:14px;line-height:1.6">Destinos padrão não podem ser removidos. Adicione destinos personalizados abaixo.</p>
+    <div id="dest-list" style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:16px;max-height:300px;overflow-y:auto;padding:2px"></div>
+    <div style="display:flex;gap:8px;margin-bottom:6px">
+      <input class="minput" id="new-dest-inp" placeholder="Nome do novo destino…" style="flex:1;text-transform:uppercase" onkeydown="if(event.key==='Enter')addNewDestino()">
+      <button class="btn btn-gold btn-xs" onclick="addNewDestino()">＋ Adicionar</button>
+    </div>
+    <div class="mactions">
+      <button class="btn btn-ghost btn-xs" onclick="closeDestinos()">Fechar</button>
+    </div>
+  </div>
+</div>
+
+<!-- ── MODAL: Link Público / QR Code ── -->
+<div class="ov" id="ov-link">
+  <div class="modal" style="width:420px;max-width:95vw">
+    <h3>🔗 Link Público de Lançamento</h3>
+    <p style="font-size:11px;color:var(--muted2);margin-bottom:14px;line-height:1.6">Compartilhe este link ou QR Code com os manutentores. Os serviços enviados aparecem aqui como <strong style="color:#f5a623">PENDENTES</strong> e precisam ser confirmados.</p>
+    <div class="link-box" id="link-url">—</div>
+    <div style="display:flex;gap:8px;margin-bottom:6px">
+      <button class="btn btn-ghost btn-xs" style="flex:1" onclick="copiarLink()">📋 Copiar</button>
+      <button class="btn btn-ghost btn-xs" style="flex:1" onclick="abrirLink()">↗ Abrir</button>
+    </div>
+    <img id="qr-img" class="qr-img" alt="QR Code">
+    <p style="font-size:10.5px;color:var(--muted);text-align:center;line-height:1.5">Escaneie com a câmera do celular para abrir o formulário.</p>
+    <div class="mactions">
+      <button class="btn btn-gold btn-xs" onclick="closeLink()">Fechar</button>
+    </div>
+  </div>
+</div>
+
+<!-- ── MODAL: Confirmar Pendente ── -->
+<div class="ov" id="ov-conf-pend">
+  <div class="confirm-modal" style="border-color:rgba(46,160,67,.3)">
+    <div class="confirm-icon">✓</div>
+    <h3 style="color:#3fb950">Confirmar Lançamento?</h3>
+    <p>Registro: <strong id="conf-pend-info">—</strong></p>
+    <span class="warn-detail" id="conf-pend-desc"></span>
+    <p style="font-size:11px;color:var(--muted)">Após confirmado, o registro fica oficial e perde a marcação de pendente.</p>
+    <div class="confirm-actions" style="margin-top:20px">
+      <button class="btn btn-ghost btn-xs" onclick="closeConfirmPend()">Cancelar</button>
+      <button class="btn btn-gold btn-xs" onclick="confirmConfirmPend()">✓ Confirmar</button>
+    </div>
+  </div>
+</div>
+
+<!-- ── MODAL: Exportar PDF com Filtros ── -->
+<div class="ov" id="ov-pdf">
+  <div class="modal" style="width:520px;max-width:95vw;max-height:90vh;overflow-y:auto">
+    <h3>📄 Exportar PDF</h3>
+    <p style="font-size:11px;color:var(--muted2);margin-bottom:14px;line-height:1.6">Selecione os filtros. Apenas registros que correspondem serão impressos.</p>
+
+    <div class="mrow"><label>Tipo de Serviço</label>
+      <div id="pdf-tipo" style="display:flex;gap:8px;flex-wrap:wrap">
+        <label class="pdf-chk"><input type="checkbox" value="PLANEJADO" checked> 📋 Planejados</label>
+        <label class="pdf-chk"><input type="checkbox" value="EMERGENCIAL" checked> ⚡ Emergenciais</label>
+      </div>
+    </div>
+
+    <div class="mrow"><label>Status</label>
+      <div id="pdf-stat" style="display:flex;gap:8px;flex-wrap:wrap">
+        <label class="pdf-chk"><input type="checkbox" value="INDENTIFICADO" checked> ⚑ Identificado</label>
+        <label class="pdf-chk"><input type="checkbox" value="ANDAMENTO" checked> ⟳ Andamento</label>
+        <label class="pdf-chk"><input type="checkbox" value="CONCLUIDO" checked> ✓ Concluído</label>
+      </div>
+    </div>
+
+    <div class="mrow"><label>Prioridade</label>
+      <div id="pdf-prio" style="display:flex;gap:8px;flex-wrap:wrap">
+        <label class="pdf-chk"><input type="checkbox" value="ALTA" checked> 🔴 Alta</label>
+        <label class="pdf-chk"><input type="checkbox" value="MEDIA" checked> 🟠 Média</label>
+        <label class="pdf-chk"><input type="checkbox" value="BAIXA" checked> 🔵 Baixa</label>
+      </div>
+    </div>
+
+    <div class="mrow"><label>Serviços</label>
+      <div style="display:flex;justify-content:flex-end;gap:8px;margin-bottom:6px">
+        <button class="btn btn-ghost btn-xs" style="padding:3px 9px;font-size:10px" onclick="pdfSetAll('pdf-serv', true)">Todos</button>
+        <button class="btn btn-ghost btn-xs" style="padding:3px 9px;font-size:10px" onclick="pdfSetAll('pdf-serv', false)">Nenhum</button>
+      </div>
+      <div id="pdf-serv" style="display:flex;gap:6px;flex-wrap:wrap;max-height:120px;overflow-y:auto;padding:6px;border:1px solid var(--border);border-radius:6px"></div>
+    </div>
+
+    <div class="mrow"><label>Funcionário (contém)</label>
+      <input class="minput" id="pdf-func" placeholder="ex: EDINHO, RAFAEL… (vazio = todos)">
+    </div>
+
+    <div class="mrow"><label>Área (contém)</label>
+      <input class="minput" id="pdf-area" placeholder="ex: UH, COZINHA… (vazio = todos)">
+    </div>
+
+    <div class="mactions">
+      <button class="btn btn-ghost btn-xs" onclick="closePdf()">Cancelar</button>
+      <button class="btn btn-gold btn-xs" onclick="runPdfExport()">📄 Gerar PDF</button>
+    </div>
+  </div>
+</div>
+
+<!-- ── MODAL: Excluir Mês ── -->
+<div class="ov" id="ov-del-month">
+  <div class="confirm-modal">
+    <div class="confirm-icon">🗑️</div>
+    <h3>Excluir Mês?</h3>
+    <p>Você está prestes a excluir o mês <strong id="del-month-name">—</strong>.</p>
+    <span class="warn-detail" id="del-month-detail"></span>
+    <p style="font-size:11px;color:var(--muted)">Esta ação não pode ser desfeita.</p>
+    <div class="confirm-actions" style="margin-top:20px">
+      <button class="btn btn-ghost btn-xs" onclick="closeDelMonth()">Cancelar</button>
+      <button class="btn btn-danger btn-xs" onclick="confirmDelMonth()">✕ Excluir</button>
+    </div>
+  </div>
+</div>
+
+<header>
+  <div>
+    <div class="logo"><span class="logo-pulse"></span>Gestão de Manutenção</div>
+    <div class="h-sub">Sistema de Serviços · Búzios · <span id="hotel-name" style="color:var(--gold2);font-weight:500">—</span></div>
+  </div>
+  <div class="h-r">
+    <button class="btn btn-ghost btn-xs" onclick="backToLanding()" title="Trocar unidade" style="display:flex;align-items:center;gap:6px"><span style="font-size:13px">🏨</span><span id="hotel-name-btn">—</span></button>
+    <button class="btn btn-ghost btn-xs" onclick="openAdmin()" title="Administrar senhas">🔑</button>
+    <button class="btn btn-ghost btn-xs" onclick="lockApp()" title="Bloquear acesso">🔒</button>
+    <span id="sync-status" style="font-size:11px;color:var(--muted2);display:flex;align-items:center">
+      <span class="sync-dot syncing" id="sync-dot"></span><span id="sync-txt">Conectando…</span>
+    </span>
+    <span class="badge" id="hdr-badge">—</span>
+    <button class="btn btn-ghost btn-xs" onclick="exportCSV()">↓ CSV</button>
+    <button class="btn btn-ghost btn-xs" onclick="openPdf()">📄 PDF</button>
+    <button class="btn btn-gold btn-xs" onclick="saveAll()">✓ Salvar</button>
+  </div>
+</header>
+
+<div class="kpis">
+  <div class="kpi tot"><div class="kpi-lbl">Total do Mês</div><div class="kpi-val" id="kt">—</div><div class="kpi-sub">registros</div></div>
+  <div class="kpi ok"><div class="kpi-lbl">Concluídos</div><div class="kpi-val" id="kc">—</div><div class="kpi-sub" id="kc-p"></div></div>
+  <div class="kpi info"><div class="kpi-lbl">Em Andamento</div><div class="kpi-val" id="ka">—</div><div class="kpi-sub">em execução</div></div>
+  <div class="kpi warn"><div class="kpi-lbl">Identificados</div><div class="kpi-val" id="ki">—</div><div class="kpi-sub">pendente</div></div>
+  <div class="kpi plan"><div class="kpi-lbl" id="kp-lbl">Planejados</div><div class="kpi-val" id="kp">—</div><div class="kpi-sub">com prazo</div></div>
+  <div class="kpi over"><div class="kpi-lbl">Atrasados</div><div class="kpi-val" id="ko">—</div><div class="kpi-sub">prazo vencido</div></div>
+</div>
+
+<div class="tabs-bar">
+  <button class="btn-pendentes" id="btn-pendentes" onclick="togglePendentesPanel()">
+    📥 Recebidos <span class="pend-count-badge" id="pend-count-badge">0</span>
+  </button>
+  <div class="tabs-scroll"><div class="tabs" id="tabs"></div></div>
+  <button class="btn-new-month" onclick="openServicos()" style="border-right:1px solid var(--border)">⚙ Serviços</button>
+  <button class="btn-new-month" onclick="openNewMonth()">📅 ＋ Mês</button>
+</div>
+
+<!-- Painel de Serviços Recebidos -->
+<div id="pendentes-panel" class="pendentes-panel">
+  <div class="pend-hdr">
+    <div class="pend-hdr-left">
+      <span style="font-size:18px">📥</span>
+      <span class="pend-hdr-title">Serviços Recebidos</span>
+      <span class="pend-hdr-cnt" id="pend-hdr-cnt">0</span>
+    </div>
+    <button class="pend-close-btn" onclick="closePendentesPanel()">✕</button>
+  </div>
+  <div class="pend-subtitle">Serviços enviados pelo link público aguardando confirmação da supervisão.</div>
+  <div id="pend-list" class="pend-list"></div>
+</div>
+<div id="pend-overlay" class="pend-overlay" onclick="closePendentesPanel()"></div>
+
+<div id="empty-state">
+  <div class="es-icon">📅</div>
+  <div class="es-title">Nenhum mês criado</div>
+  <div class="es-sub">Clique em <strong style="color:var(--gold)">📅 ＋ Mês</strong> para criar o primeiro mês.</div>
+  <button class="btn btn-gold" onclick="openNewMonth()" style="margin-top:8px;padding:10px 28px;font-size:13px">📅 Criar Primeiro Mês</button>
+</div>
+<div id="panels"></div>
+
+<footer>
+  <span id="ftr"></span>
+  <div style="display:flex;align-items:center;gap:12px">
+    <span style="font-size:10px;color:var(--muted);opacity:.5">Clique status/prioridade para alternar · serviço para editar</span>
+    <div class="sp" id="sp"><div class="sp-dot"></div>Salvo</div>
+  </div>
+</footer>
+
+<!-- Firebase SDKs -->
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
+<script src="app.js?v=14"></script>
+</body>
+</html>

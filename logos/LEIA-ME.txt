@@ -1,0 +1,28 @@
+LOGOS DAS UNIDADES
+
+Salve a logo de cada unidade nesta pasta, em PNG com fundo transparente,
+usando exatamente estes nomes de arquivo:
+
+  costa_sol.png        (Costa do Sol)
+  brava_club.png       (Brava Club)
+  brava_exclusive.png  (Brava Exclusive)
+  vila_pitanga.png     (Vila Pitanga)
+  maria_maria.png      (Maria Maria)
+  carros.png           (Carros)
+
+Logos do GRUPO MERIDIANA:
+  grupo-vertical.png   (vertical - aparece na tela de login e na tela master)
+  grupo-horizontal.png (horizontal - aparece no cabecalho da Area Administrativa)
+
+Onde a logo aparece automaticamente quando o arquivo existe:
+  - Cabecalho da unidade (topo)
+  - Dashboard (no alto)
+  - Card de selecao (tela master)
+  - Tela de boas-vindas ao entrar pelo codigo da unidade
+  - Cabecalho do relatorio em PDF
+
+Se o arquivo de uma unidade nao existir, o sistema usa o icone padrao
+(sol, onda, etc.) e nada quebra.
+
+Dica: prefira PNG com fundo transparente e a arte em dourado/claro,
+para ficar boa no tema escuro.

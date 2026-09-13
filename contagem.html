@@ -1,0 +1,229 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+<title>Contagem de itens</title>
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@400;600;700&family=Jost:wght@300;400;500;600&display=swap" rel="stylesheet">
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg:#07090f;--s1:#0d1018;--s3:#1a1f2d;--s4:#21273a;
+  --border:rgba(255,255,255,.055);--border2:rgba(255,255,255,.11);
+  --gold:#c49a3c;--gold2:#ddb84e;
+  --text:#e8e9ec;--muted:#7a8094;--muted2:#9ba0b0;
+  --danger:#e5484d;--ok:#2ea043;
+}
+body{font-family:'Jost',sans-serif;background:linear-gradient(135deg,#07090f 0%,#0d1018 100%);color:var(--text);min-height:100vh;display:flex;align-items:flex-start;justify-content:center;padding:24px 16px;font-size:13px}
+.card{width:100%;max-width:480px;background:var(--s1);border:1px solid var(--border);border-radius:14px;padding:24px;box-shadow:0 20px 60px rgba(0,0,0,.5)}
+h1{font-family:'Cormorant Garamond',serif;font-weight:600;font-size:24px;color:var(--gold2);margin-bottom:4px;display:flex;align-items:center;gap:10px}
+.subtitle{font-size:11px;color:var(--muted);margin-bottom:18px;letter-spacing:.5px}
+.badge{display:inline-flex;align-items:center;gap:6px;background:rgba(196,154,60,.14);border:1px solid rgba(196,154,60,.4);color:var(--gold2);padding:7px 13px;border-radius:8px;font-size:12px;font-weight:500;margin-bottom:16px}
+.field{margin-bottom:14px}
+label{display:block;font-size:10px;letter-spacing:1.2px;color:var(--muted);text-transform:uppercase;font-weight:500;margin-bottom:6px}
+input,select{width:100%;background:var(--s4);border:1px solid var(--border);border-radius:8px;padding:10px 12px;color:var(--text);font-family:inherit;font-size:13px;outline:none;transition:border-color .15s}
+input:focus,select:focus{border-color:var(--gold)}
+.btn{width:100%;background:linear-gradient(135deg,var(--gold) 0%,#a87f2a 100%);color:#1a1408;border:none;border-radius:8px;padding:13px;font-family:inherit;font-size:14px;font-weight:600;cursor:pointer;letter-spacing:.5px;margin-top:6px;transition:transform .1s,opacity .15s}
+.btn:hover{transform:translateY(-1px)}
+.btn:disabled{opacity:.5;cursor:not-allowed}
+.msg{margin-top:14px;padding:12px;border-radius:8px;font-size:12px;line-height:1.5;display:none}
+.msg.show{display:block}
+.msg.ok{background:rgba(46,160,67,.13);border:1px solid rgba(46,160,67,.35);color:#7ee787}
+.msg.err{background:rgba(229,72,77,.13);border:1px solid rgba(229,72,77,.35);color:#ff7a7e}
+.footer-note{margin-top:18px;padding-top:14px;border-top:1px solid var(--border);font-size:10.5px;color:var(--muted);text-align:center;line-height:1.6}
+.loader{display:inline-block;width:14px;height:14px;border:2px solid rgba(255,255,255,.3);border-top-color:#1a1408;border-radius:50%;animation:spin .7s linear infinite;vertical-align:middle;margin-right:8px}
+@keyframes spin{to{transform:rotate(360deg)}}
+.cont-head{display:flex;justify-content:space-between;align-items:center;margin:16px 0 8px}
+.cont-head .cont-total{font-size:12px;color:var(--gold2);font-weight:600}
+.item-row{display:flex;align-items:center;gap:10px;background:var(--s4);border:1px solid var(--border);border-radius:8px;padding:7px 10px;margin-bottom:7px}
+.item-row .item-name{flex:1;font-size:12.5px;line-height:1.3}
+.item-row input{width:74px;text-align:center;padding:8px;font-weight:700;font-size:15px}
+.hint{font-size:11px;color:var(--muted);margin:6px 0 12px;line-height:1.6}
+.count-badge{font-size:10.5px;color:var(--muted2);margin-left:auto}
+</style>
+</head>
+<body>
+<div class="card">
+  <h1>📋 Contagem</h1>
+  <div class="subtitle" id="subtitle">Contagem de itens por setor</div>
+  <div class="badge" id="badge">Contagem de estoque</div>
+
+  <div class="field">
+    <label>Setor</label>
+    <select id="f-setor" onchange="onSetorChange()"></select>
+  </div>
+  <div class="field">
+    <label>Contado por (opcional)</label>
+    <input id="f-por" placeholder="seu nome" autocomplete="off">
+  </div>
+
+  <div id="items-wrap" style="display:none">
+    <div class="cont-head">
+      <label style="margin:0">Itens · digite a quantidade</label>
+      <span class="cont-total" id="total-live">Total: 0</span>
+    </div>
+    <div class="hint">Deixe em branco os itens que não tiver. Em branco conta como zero.</div>
+    <div id="items"></div>
+    <button class="btn" id="btn-enviar" onclick="enviar()">Enviar contagem</button>
+  </div>
+
+  <div id="empty-note" class="hint" style="display:none">Este setor ainda não tem itens cadastrados.</div>
+
+  <div class="msg" id="msg"></div>
+  <div class="footer-note">Grupo Meridiana · Sistema de Contagem</div>
+</div>
+
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
+<script>
+const FIREBASE_CFG = {
+  apiKey: "AIzaSyD5iD_RrPkfSW4_cgMbysEFKDpDh5_4i80",
+  authDomain: "hotel-manutencao.firebaseapp.com",
+  databaseURL: "https://hotel-manutencao-default-rtdb.firebaseio.com",
+  projectId: "hotel-manutencao",
+  storageBucket: "hotel-manutencao.firebasestorage.app",
+  messagingSenderId: "368535658005",
+  appId: "1:368535658005:web:5759f188a29710f7db781c"
+};
+const HOTELS = {
+  'costa_sol':       { name: 'Costa do Sol',    path: 'hotel_manutencao' },
+  'brava_club':      { name: 'Brava Club',      path: 'hotels/brava_club' },
+  'brava_exclusive': { name: 'Brava Exclusive', path: 'hotels/brava_exclusive' },
+  'vila_pitanga':    { name: 'Vila Pitanga',    path: 'hotels/vila_pitanga' },
+  'maria_maria':     { name: 'Maria Maria',     path: 'hotels/maria_maria' },
+  'carros':          { name: 'Carros',          path: 'hotels/carros' },
+};
+const SETORES = [
+  { k: 'cozinha',    l: 'Cozinha' },
+  { k: 'recepcao',   l: 'Recepção' },
+  { k: 'manutencao', l: 'Manutenção' },
+  { k: 'governanca', l: 'Governança' },
+];
+// Reserva: lista da Cozinha caso o banco esteja vazio (mantida igual à do app).
+const COZINHA_ITENS_DEFAULT = [
+  'Xícara de café (preta)','Pires de café (preto)','Xícara de café (branca)','Pires de café (branco)',
+  'Xícara de café (Oxford)','Pires de café (Oxford)','Xícara de chá (Schmidt)','Pires de chá (Schmidt)',
+  'Xícara de chá (Oxford)','Pires de chá (Oxford)','Prato de sobremesa','Prato de sopa',
+  'Prato fundo Ceviche','Prato fundo Salada','Prato liso branco (diversos)','Prato preto','Prato azul',
+  'Prato de plástico amarelo','Prato de madeira redondo de pizza','Bowl bege de plástico','Bowl de louça branco',
+  'Bowl antigo','Bowl antigo pequeno','Ramekin médio','Ramekin pequeno','Ramekin grande','Açucareiro porta sachê',
+  'Molheira pequena','Prato quadrado grande','Prato quadrado pequeno','Prato quadrado boleado',
+  'Travessa retangular','Travessa ret. melamina','Travessa retangular estreita','Taça de sorvete de vidro',
+  'Taça banana Split','Boleira de vidro','Travessa oval grande','Travessa de vidro','Travessa de vidro pequena',
+  'Travessa de vidro com pé','Prato vidro decorado peq','Jarra de vidro','Saladeiras diversas de vidro','Tulipa',
+  'Taça de vinho branco','Taça de vinho tinto','Taça de espumante','Copo suco café da manhã','Copo Preto (Dubai)',
+  'Taça de coquetel','Copo de Whisky','Taça Gin Tônica (Borgonha)','Balde dourado','Bowl dourado',
+  'Pegador dourado com garra','Pegador de gelo dourado','Pegador dourado meia garra','Pegador dourado longo',
+  'Colher dourada','Concha dourada','Escumadeira dourada','Bandeja retangular preta','Bandeja redonda Preta',
+  'Bandeja redonda de aço','Balde de gelo de aço','Balde de gelo de acrílico','Balde de gelo pequeno',
+  'Pegador de gelo de aço','Pegador liso de aço','Colher arroz (Buffet) aço','Pegador de aço com garra',
+  'Bailarina de aço','Colher de sobremesa','Colher de sopa','Garfo de sobremesa','Faca de sobremesa',
+  'Garfo de mesa','Faca de mesa','Colher de chá','Colher de cafezinho','Pote quadrado peq vidro','Cinzeiro',
+  'Fruteira vidro','Bomboneira peq','Pote musse com palha','Pote musse tapa vidro',
+];
+
+const params = new URLSearchParams(window.location.search);
+const hotelKey = HOTELS[params.get('h')] ? params.get('h') : 'brava_club';
+const HOTEL = HOTELS[hotelKey];
+const preSetor = params.get('s') || '';
+
+const fbApp = firebase.initializeApp(FIREBASE_CFG, 'publico');
+const db = firebase.database(fbApp);
+const pubAuth = firebase.auth(fbApp);
+try { pubAuth.setPersistence(firebase.auth.Auth.Persistence.NONE); } catch (e) {}
+const authReady = pubAuth.signInAnonymously().catch(e => console.error('Falha no login anônimo:', e));
+
+function esc(s) { return String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c])); }
+function nowHM() { const d = new Date(); return `${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}`; }
+function genId() { return 'c' + Date.now().toString(36) + Math.random().toString(36).slice(2, 7); }
+
+let CONT_ITENS = {};   // { setor: [nomes] } vindo do banco
+let ITENS_ATUAIS = []; // itens do setor selecionado
+
+document.title = `Contagem · ${HOTEL.name}`;
+document.getElementById('subtitle').textContent = `🏨 ${HOTEL.name} · Contagem de itens`;
+
+function setM(t, c) { const m = document.getElementById('msg'); m.textContent = t; m.className = 'msg show ' + c; }
+
+function itensDoSetor(setor) {
+  const custom = CONT_ITENS && CONT_ITENS[setor];
+  if (Array.isArray(custom) && custom.length) return custom;
+  if (setor === 'cozinha') return COZINHA_ITENS_DEFAULT;
+  return [];
+}
+
+function montarSetores() {
+  const sel = document.getElementById('f-setor');
+  sel.innerHTML = '<option value="">Selecione o setor…</option>' + SETORES.map(s => {
+    const tem = itensDoSetor(s.k).length > 0;
+    return `<option value="${s.k}"${tem ? '' : ' disabled'}>${s.l}${tem ? '' : ' (em breve)'}</option>`;
+  }).join('');
+  if (preSetor && itensDoSetor(preSetor).length) { sel.value = preSetor; onSetorChange(); }
+}
+
+function atualizarTotal() {
+  let t = 0;
+  document.querySelectorAll('#items input').forEach(i => { t += parseInt(i.value, 10) || 0; });
+  document.getElementById('total-live').textContent = 'Total: ' + t;
+}
+
+function onSetorChange() {
+  const setor = document.getElementById('f-setor').value;
+  const wrap = document.getElementById('items-wrap');
+  const empty = document.getElementById('empty-note');
+  document.getElementById('msg').className = 'msg';
+  if (!setor) { wrap.style.display = 'none'; empty.style.display = 'none'; return; }
+  ITENS_ATUAIS = itensDoSetor(setor);
+  if (!ITENS_ATUAIS.length) { wrap.style.display = 'none'; empty.style.display = 'block'; return; }
+  empty.style.display = 'none';
+  document.getElementById('items').innerHTML = ITENS_ATUAIS.map((nome, i) =>
+    `<div class="item-row"><span class="item-name">${esc(nome)}</span>
+      <input type="number" inputmode="numeric" min="0" step="1" data-i="${i}" oninput="atualizarTotal()" placeholder="0"></div>`
+  ).join('');
+  document.getElementById('total-live').textContent = 'Total: 0';
+  wrap.style.display = 'block';
+}
+
+async function enviar() {
+  const setor = document.getElementById('f-setor').value;
+  if (!setor || !ITENS_ATUAIS.length) { setM('Selecione o setor.', 'err'); return; }
+  const inputs = [...document.querySelectorAll('#items input')];
+  const itens = []; let total = 0;
+  ITENS_ATUAIS.forEach((nome, i) => {
+    const v = (inputs[i] ? inputs[i].value : '').trim();
+    const n = v === '' ? 0 : Math.max(0, parseInt(v, 10) || 0);
+    itens.push({ n: nome, q: n }); total += n;
+  });
+  const rec = { id: genId(), setor, ts: Date.now(), hora: nowHM(), itens, total, por: document.getElementById('f-por').value.trim() };
+  const btn = document.getElementById('btn-enviar');
+  btn.disabled = true; btn.innerHTML = '<span class="loader"></span>Enviando…';
+  try {
+    await authReady;
+    const ref = db.ref(HOTEL.path + '/contagens');
+    const snap = await ref.once('value');
+    const arr = Array.isArray(snap.val()) ? snap.val() : [];
+    arr.unshift(rec);
+    await ref.set(arr);
+    setM(`✓ Contagem enviada! ${SETORES.find(s => s.k === setor).l} · Total ${total} peças. A supervisão já pode ver no sistema.`, 'ok');
+    document.getElementById('items-wrap').style.display = 'none';
+    document.getElementById('f-setor').value = '';
+  } catch (e) {
+    console.error(e);
+    setM('Erro ao enviar. Verifique a conexão e tente de novo.', 'err');
+  } finally {
+    btn.disabled = false; btn.textContent = 'Enviar contagem';
+  }
+}
+
+// Carrega as listas de itens do banco e monta a tela
+authReady.then(() => db.ref(HOTEL.path + '/contagemItens').once('value'))
+  .then(snap => {
+    const v = snap.val();
+    CONT_ITENS = (v && typeof v === 'object' && !Array.isArray(v)) ? v : {};
+    montarSetores();
+  })
+  .catch(e => { console.error(e); CONT_ITENS = {}; montarSetores(); });
+</script>
+</body>
+</html>
