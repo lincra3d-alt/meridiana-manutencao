@@ -223,6 +223,23 @@ header{background:var(--s1);border-bottom:1px solid var(--border);padding:13px 2
 .gov-rec-item-top span{font-size:10.5px;color:var(--muted)}
 .gov-rec-item-sub{font-size:11.5px;color:var(--gold2);margin:3px 0 8px}
 .gov-rec-item-btns{display:flex;gap:8px;flex-wrap:wrap}
+/* Perfis de acesso */
+.perfil-list{display:flex;flex-direction:column;gap:8px}
+.perfil-row{display:flex;align-items:center;gap:12px;background:var(--s2);border:1px solid var(--border);border-radius:9px;padding:11px 13px}
+.perfil-nome{font-size:14px;font-weight:600;color:var(--text)}
+.perfil-off{font-size:10px;color:var(--muted);border:1px solid var(--border2);border-radius:5px;padding:1px 6px;vertical-align:middle;text-transform:uppercase;letter-spacing:.5px}
+.perfil-un{font-size:11px;color:var(--muted);margin-top:2px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.perfil-acts{display:flex;gap:6px;flex:none}
+.perfil-sec{font-family:'Cormorant Garamond',serif;font-size:15px;color:var(--gold2);letter-spacing:.5px;margin:18px 0 8px}
+.perfil-hint{font-family:'Jost',sans-serif;font-size:10.5px;color:var(--muted);letter-spacing:0}
+.perfil-uchks{display:flex;flex-wrap:wrap;gap:8px 16px}
+.perfil-uchk{display:flex;align-items:center;gap:7px;font-size:12.5px;color:var(--text);cursor:pointer;background:var(--s2);border:1px solid var(--border);border-radius:8px;padding:8px 12px}
+.perfil-modblock{background:var(--s2);border:1px solid var(--border);border-radius:9px;padding:11px 13px;margin-bottom:9px}
+.perfil-modblock-h{display:flex;justify-content:space-between;align-items:center;gap:10px;margin-bottom:8px}
+.perfil-modblock-h b{font-size:13px;color:var(--gold2)}
+.perfil-mchks{display:flex;flex-wrap:wrap;gap:6px 14px}
+.perfil-mchk{display:flex;align-items:center;gap:6px;font-size:12px;color:var(--muted2);cursor:pointer}
+.perfil-mchk input{cursor:pointer}
 /* ── INVENTÁRIO ── */
 .inv-toolbar{display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin:16px 0 4px}
 .inv-toolbar .sw{flex:1 1 220px;max-width:340px;min-width:160px}

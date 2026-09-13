@@ -177,6 +177,8 @@ function fmtBRL(n) { return 'R$ ' + (Number(n) || 0).toLocaleString('pt-BR', { m
 // ─── STATE ────────────────────────────────────────────────────────────────────
 let MONTHS = [], DATA = [], INVENTARIO = [], LIXEIRA = [], LOG = [];
 let activeMonth = 0, modalTarget = null, sortDir = {}, delMonthIdx = null, activeModule = 'dash', editTarget = null;
+// Perfil ativo da sessão (null = master/diretoria, vê tudo). { nome, unidades:[keys], modulos:{ key:[mods] } }
+let activeProfile = null;
 let db = null, saveDebounce = null, activeRef = null, firstLoad = true, authReady = null;
 function currentMonthName() {
   const d = new Date();
@@ -506,6 +508,129 @@ async function enterAdminArea() {
   renderAdmin();
 }
 function closeAdminArea() { document.getElementById('admin-screen').classList.remove('show'); }
+
+// ─── PERFIS DE ACESSO (só Área Administrativa) ──────────────────────────────────
+let PERFIS = {};
+async function openPerfis() {
+  ensureApp(); if (authReady) await authReady;
+  try { PERFIS = (await db.ref('config/perfis').once('value')).val() || {}; }
+  catch (e) { console.error(e); PERFIS = {}; }
+  renderPerfisList();
+  document.getElementById('ov-perfis').classList.add('show');
+}
+function closePerfis() { document.getElementById('ov-perfis').classList.remove('show'); }
+function renderPerfisList() {
+  const ids = Object.keys(PERFIS);
+  const rows = ids.length ? ids.map(id => {
+    const p = PERFIS[id] || {};
+    const un = (p.unidades || []).map(k => { const h = HOTELS.find(x => x.key === k); return h ? h.name : k; }).join(', ') || 'nenhuma';
+    return `<div class="perfil-row">
+      <div style="flex:1;min-width:0"><div class="perfil-nome">${esc(p.nome || '(sem nome)')}${p.ativo === false ? ' <span class="perfil-off">inativo</span>' : ''}</div><div class="perfil-un">${esc(un)}</div></div>
+      <div class="perfil-acts">
+        <button class="btn btn-ghost btn-xs" onclick="togglePerfilAtivo('${id}')">${p.ativo === false ? 'Ativar' : 'Desativar'}</button>
+        <button class="btn btn-ghost btn-xs" onclick="openPerfilEditor('${id}')">Editar</button>
+        <button class="btn btn-ghost btn-xs" onclick="deletePerfil('${id}')">Excluir</button>
+      </div></div>`;
+  }).join('') : '<p class="modview-note">Nenhum perfil criado ainda.</p>';
+  document.getElementById('perfis-body').innerHTML = `
+    <h3>👥 Perfis de acesso</h3>
+    <p class="modview-note">Cada perfil tem um código próprio e vê só as unidades e módulos liberados. A diretoria (senha master) continua vendo tudo.</p>
+    <div style="margin:14px 0"><button class="btn btn-gold btn-xs" onclick="openPerfilEditor('')">➕ Novo perfil</button></div>
+    <div class="perfil-list">${rows}</div>`;
+}
+let perfilEdit = null;
+function openPerfilEditor(id) {
+  const p = id ? (PERFIS[id] || {}) : { nome: '', unidades: [], modulos: {}, ativo: true };
+  perfilEdit = {
+    id: id || ('p' + Date.now().toString(36) + Math.random().toString(36).slice(2, 5)),
+    novo: !id,
+    nome: p.nome || '',
+    codigoNovo: '',
+    unidades: [...(p.unidades || [])],
+    modulos: JSON.parse(JSON.stringify(p.modulos || {})),
+    ativo: p.ativo !== false,
+  };
+  renderPerfilEditor();
+}
+function perfilCaptura() {
+  if (!perfilEdit) return;
+  const n = document.getElementById('perfil-nome'); if (n) perfilEdit.nome = n.value;
+  const c = document.getElementById('perfil-codigo'); if (c) perfilEdit.codigoNovo = c.value;
+}
+function renderPerfilEditor() {
+  const st = perfilEdit;
+  const uchecks = HOTELS.map(h => `<label class="perfil-uchk"><input type="checkbox" ${st.unidades.includes(h.key) ? 'checked' : ''} onchange="perfilToggleUnidade('${h.key}',this.checked)"> ${h.icon} ${esc(h.name)}</label>`).join('');
+  const modBlocks = st.unidades.map(key => {
+    const h = HOTELS.find(x => x.key === key);
+    const mods = modulosDaUnidade(key);
+    const sel = st.modulos[key] || [];
+    const checks = mods.map(m => `<label class="perfil-mchk"><input type="checkbox" ${sel.includes(m.k) ? 'checked' : ''} onchange="perfilToggleMod('${key}','${m.k}',this.checked)"> ${m.lbl}</label>`).join('');
+    return `<div class="perfil-modblock"><div class="perfil-modblock-h"><b>${esc(h ? h.name : key)}</b><button class="btn btn-ghost btn-xs" onclick="perfilAplicarTodas('${key}')" title="Copiar estes módulos para as outras unidades">⇊ aplicar a todas</button></div><div class="perfil-mchks">${checks}</div></div>`;
+  }).join('');
+  document.getElementById('perfis-body').innerHTML = `
+    <h3>${st.novo ? 'Novo perfil' : 'Editar perfil'}</h3>
+    <div class="mrow"><label>Nome do perfil</label><input class="minput" id="perfil-nome" value="${esc(st.nome)}" placeholder="Ex: Marcio Supervisor"></div>
+    <div class="mrow"><label>Código de acesso ${st.novo ? '' : '(em branco = manter o atual)'}</label><input class="minput" id="perfil-codigo" type="text" value="${esc(st.codigoNovo)}" placeholder="${st.novo ? 'defina um código' : '••••••'}" autocomplete="off"></div>
+    <div class="perfil-sec">Unidades que este perfil acessa</div>
+    <div class="perfil-uchks">${uchecks}</div>
+    ${st.unidades.length ? `<div class="perfil-sec">Módulos liberados por unidade <span class="perfil-hint">(marcado = pode ver/mexer)</span></div>${modBlocks}` : '<p class="modview-note">Selecione ao menos uma unidade para escolher os módulos.</p>'}
+    <div class="mactions" style="margin-top:16px">
+      <button class="btn btn-ghost btn-xs" onclick="renderPerfisList()">← Voltar</button>
+      <button class="btn btn-gold btn-xs" onclick="salvarPerfil()">💾 Salvar perfil</button>
+    </div>`;
+}
+function perfilToggleUnidade(key, on) {
+  perfilCaptura();
+  const st = perfilEdit;
+  if (on) { if (!st.unidades.includes(key)) st.unidades.push(key); if (!st.modulos[key]) st.modulos[key] = modulosDaUnidade(key).map(m => m.k); }
+  else { st.unidades = st.unidades.filter(k => k !== key); delete st.modulos[key]; }
+  renderPerfilEditor();
+}
+function perfilToggleMod(key, mod, on) {
+  const st = perfilEdit;
+  if (!st.modulos[key]) st.modulos[key] = [];
+  if (on) { if (!st.modulos[key].includes(mod)) st.modulos[key].push(mod); }
+  else st.modulos[key] = st.modulos[key].filter(m => m !== mod);
+}
+function perfilAplicarTodas(fromKey) {
+  perfilCaptura();
+  const st = perfilEdit;
+  const src = st.modulos[fromKey] || [];
+  st.unidades.forEach(k => { if (k === fromKey) return; const avail = modulosDaUnidade(k).map(m => m.k); st.modulos[k] = src.filter(m => avail.includes(m)); });
+  renderPerfilEditor();
+}
+async function salvarPerfil() {
+  perfilCaptura();
+  const st = perfilEdit;
+  const nome = (st.nome || '').trim();
+  if (!nome) { alert('Dê um nome ao perfil.'); return; }
+  if (!st.unidades.length) { alert('Selecione ao menos uma unidade.'); return; }
+  const existing = PERFIS[st.id];
+  let codigoHash = existing ? existing.codigo : null;
+  const codVal = (st.codigoNovo || '').trim();
+  if (codVal) { if (codVal.length < 4) { alert('O código deve ter ao menos 4 caracteres.'); return; } codigoHash = await sha256(codVal); }
+  if (!codigoHash) { alert('Defina um código de acesso para o perfil.'); return; }
+  const rec = { nome, codigo: codigoHash, unidades: st.unidades.slice(), modulos: {}, ativo: st.ativo !== false, criadoEm: existing ? (existing.criadoEm || Date.now()) : Date.now() };
+  st.unidades.forEach(k => { rec.modulos[k] = (st.modulos[k] || []).slice(); });
+  try {
+    await db.ref('config/perfis/' + st.id).set(rec);
+    PERFIS[st.id] = rec;
+    logAction('Salvou perfil de acesso', nome);
+    renderPerfisList();
+  } catch (e) { console.error(e); alert('Não foi possível salvar o perfil.'); }
+}
+async function togglePerfilAtivo(id) {
+  const p = PERFIS[id]; if (!p) return;
+  const novo = p.ativo === false;
+  try { await db.ref('config/perfis/' + id + '/ativo').set(novo); p.ativo = novo; renderPerfisList(); }
+  catch (e) { console.error(e); alert('Não foi possível alterar.'); }
+}
+async function deletePerfil(id) {
+  const p = PERFIS[id];
+  if (!confirm('Excluir o perfil "' + (p ? p.nome : '') + '"? A pessoa perde o acesso por esse código.')) return;
+  try { await db.ref('config/perfis/' + id).remove(); delete PERFIS[id]; logAction('Excluiu perfil de acesso', p ? p.nome : id); renderPerfisList(); }
+  catch (e) { console.error(e); alert('Não foi possível excluir.'); }
+}
 
 // ─── SENHAS (gestão só na Área Administrativa) ──────────────────────────────────
 function openAdminPins() {
@@ -1102,6 +1227,10 @@ function renderDashboard() {
 
 // ─── BUILD UI ─────────────────────────────────────────────────────────────────
 function validModule(k) {
+  // Perfil ativo: só os módulos liberados; se pedir outro, cai no primeiro liberado.
+  const lib = modulosLiberados(currentHotel);
+  if (lib) return lib.includes(k) ? k : (lib[0] || 'dash');
+  // Sem perfil (master): regras por capacidade da unidade.
   if (k === 'asg' && hotelInfo().frota) return 'dash';
   if (k === 'gest' && hotelInfo().frota) return 'dash';
   if (k === 'cont' && !hotelInfo().contagem) return 'dash';
@@ -1110,18 +1239,34 @@ function validModule(k) {
   return k;
 }
 
-function buildModuleMenu() {
-  const isFrota = !!hotelInfo().frota;
+// Lista de módulos que uma unidade tem (usado no menu e na tela de perfis)
+function modulosDaUnidade(key) {
+  const h = HOTELS.find(x => x.key === key) || {};
   const mods = [{ k: 'dash', lbl: 'Dashboard' }];
-  if (isFrota) mods.push({ k: 'plan', lbl: 'Serviços' }, { k: 'emrg', lbl: 'Viagem' });
+  if (h.frota) mods.push({ k: 'plan', lbl: 'Serviços' }, { k: 'emrg', lbl: 'Viagem' });
   else {
     mods.push({ k: 'plan', lbl: 'Planejados' }, { k: 'emrg', lbl: 'Emergencial' }, { k: 'asg', lbl: 'ASG' });
-    if (hotelInfo().contagem) mods.push({ k: 'cont', lbl: 'Contagem' });
-    if (hotelInfo().governanca) mods.push({ k: 'gov', lbl: 'Governança' });
+    if (h.contagem) mods.push({ k: 'cont', lbl: 'Contagem' });
+    if (h.governanca) mods.push({ k: 'gov', lbl: 'Governança' });
     mods.push({ k: 'gest', lbl: 'Gestão' });
   }
-  if (hotelInfo().inventario) mods.push({ k: 'inv', lbl: 'Inventário' });
+  if (h.inventario) mods.push({ k: 'inv', lbl: 'Inventário' });
   mods.push({ k: 'rel', lbl: 'Relatórios' }, { k: 'cad', lbl: 'Cadastros' }, { k: 'param', lbl: 'Parâmetros' });
+  return mods;
+}
+// Módulos liberados para o perfil ativo na unidade atual (null = sem restrição)
+function modulosLiberados(key) {
+  if (!activeProfile) return null;
+  const arr = (activeProfile.modulos && activeProfile.modulos[key]) || [];
+  return Array.isArray(arr) ? arr : [];
+}
+function buildModuleMenu() {
+  let mods = modulosDaUnidade(currentHotel);
+  const lib = modulosLiberados(currentHotel);
+  if (lib) {
+    mods = mods.filter(m => lib.includes(m.k));
+    if (!mods.length) mods = modulosDaUnidade(currentHotel).slice(0, 1); // pelo menos o Dashboard
+  }
   const el = document.getElementById('mod-menu');
   if (el) el.innerHTML = mods.map(m => `<button class="modtab${m.k === activeModule ? ' active' : ''}" data-mod="${m.k}" onclick="setModule('${m.k}')">${m.lbl}</button>`).join('');
 }
@@ -3637,7 +3782,8 @@ function updatePendentesCount() {
 function buildLanding() {
   const grid = document.getElementById('lp-grid');
   if (!grid) return;
-  grid.innerHTML = HOTELS.map(h =>
+  const lista = activeProfile ? HOTELS.filter(h => (activeProfile.unidades || []).includes(h.key)) : HOTELS;
+  grid.innerHTML = lista.map(h =>
     `<div class="lp-card${h.key === currentHotel ? ' active' : ''}" onclick="pickHotel('${h.key}')">
        <div class="lp-card-icon"><img class="lp-logo-img" src="logos/${h.key}.png" alt="" onerror="this.remove()"><span class="lp-emoji">${h.icon}</span></div>
        <div class="lp-card-name">${h.name}</div>
@@ -3685,7 +3831,8 @@ async function sha256(str) {
 
 function unlockedThisSession(key) {
   return sessionStorage.getItem('mtnc_master') === '1'
-      || sessionStorage.getItem('mtnc_unlocked_' + key) === '1';
+      || sessionStorage.getItem('mtnc_unlocked_' + key) === '1'
+      || !!(activeProfile && (activeProfile.unidades || []).includes(key));
 }
 
 async function ensureAccess(key) {
@@ -3963,6 +4110,33 @@ async function submitLoginCode() {
       initFirebase(FIREBASE_CFG);
       return;
     }
+    // Código de perfil → entra com as unidades e módulos liberados desse perfil.
+    const perfisSnap = await db.ref('config/perfis').once('value');
+    const perfis = perfisSnap.val() || {};
+    let mp = null;
+    for (const pid in perfis) { const p = perfis[pid]; if (p && p.ativo !== false && p.codigo && p.codigo === hash) { mp = p; break; } }
+    if (mp) {
+      const unidades = (mp.unidades || []).filter(k => HOTELS.find(h => h.key === k));
+      if (!unidades.length) { err.textContent = 'Este perfil não tem unidade liberada. Fale com a diretoria.'; inp.value = ''; return; }
+      localStorage.removeItem('mtnc_login_fails'); localStorage.removeItem('mtnc_login_lock');
+      activeProfile = { nome: mp.nome || 'Perfil', unidades, modulos: mp.modulos || {} };
+      sessionStorage.setItem('mtnc_profile', JSON.stringify(activeProfile));
+      if (unidades.length === 1) {
+        const key = unidades[0];
+        currentHotel = key; localStorage.setItem('currentHotel', key);
+        activeModule = (modulosLiberados(key) || ['dash'])[0] || 'dash';
+        hideLogin();
+        document.getElementById('landing').classList.add('hidden');
+        showUnitWelcome(key);
+        buildHotelSelector();
+        initFirebase(FIREBASE_CFG);
+      } else {
+        hideLogin();
+        buildLanding();
+        document.getElementById('landing').classList.remove('hidden');
+      }
+      return;
+    }
     const fails = (parseInt(localStorage.getItem('mtnc_login_fails') || '0') + 1);
     localStorage.setItem('mtnc_login_fails', String(fails));
     inp.value = '';
@@ -3993,6 +4167,7 @@ function backToLanding() {
   document.getElementById('empty-state').style.display = 'none';
   // "Trocar unidade" sempre volta para o login. A lista com todas as unidades
   // só reaparece ao digitar a senha master. Limpa a sessão para exigir novo acesso.
+  activeProfile = null;
   Object.keys(sessionStorage).forEach(k => { if (k.indexOf('mtnc_') === 0) sessionStorage.removeItem(k); });
   document.getElementById('landing').classList.add('hidden');
   showLogin();
