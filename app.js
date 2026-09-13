@@ -502,12 +502,15 @@ async function enterAdminArea() {
   } catch (e) { console.error(e); err.textContent = 'Erro ao validar. Tente novamente.'; return; }
   sessionStorage.setItem('mtnc_master', '1');
   closeAdminPin();
+  // esconde login e seleção de unidade para a Área Admin não ficar atrás deles
+  hideLogin();
+  document.getElementById('landing').classList.add('hidden');
   document.getElementById('admin-screen').classList.add('show');
   await loadAdminData();
   buildAdminMonths();
   renderAdmin();
 }
-function closeAdminArea() { document.getElementById('admin-screen').classList.remove('show'); }
+function closeAdminArea() { document.getElementById('admin-screen').classList.remove('show'); showLogin(); }
 
 // ─── PERFIS DE ACESSO (só Área Administrativa) ──────────────────────────────────
 let PERFIS = {};
