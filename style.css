@@ -228,6 +228,7 @@ header{background:var(--s1);border-bottom:1px solid var(--border);padding:13px 2
 .perfil-row{display:flex;align-items:center;gap:12px;background:var(--s2);border:1px solid var(--border);border-radius:9px;padding:11px 13px}
 .perfil-nome{font-size:14px;font-weight:600;color:var(--text)}
 .perfil-off{font-size:10px;color:var(--muted);border:1px solid var(--border2);border-radius:5px;padding:1px 6px;vertical-align:middle;text-transform:uppercase;letter-spacing:.5px}
+.perfil-prov{font-size:10px;color:var(--gold2);border:1px solid rgba(196,154,60,.5);background:rgba(196,154,60,.1);border-radius:5px;padding:1px 6px;vertical-align:middle;letter-spacing:.3px}
 .perfil-un{font-size:11px;color:var(--muted);margin-top:2px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .perfil-acts{display:flex;gap:6px;flex:none}
 .perfil-sec{font-family:'Cormorant Garamond',serif;font-size:15px;color:var(--gold2);letter-spacing:.5px;margin:18px 0 8px}

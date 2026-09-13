@@ -528,7 +528,7 @@ function renderPerfisList() {
     const p = PERFIS[id] || {};
     const un = (p.unidades || []).map(k => { const h = HOTELS.find(x => x.key === k); return h ? h.name : k; }).join(', ') || 'nenhuma';
     return `<div class="perfil-row">
-      <div style="flex:1;min-width:0"><div class="perfil-nome">${esc(p.nome || '(sem nome)')}${p.ativo === false ? ' <span class="perfil-off">inativo</span>' : ''}</div><div class="perfil-un">${esc(un)}</div></div>
+      <div style="flex:1;min-width:0"><div class="perfil-nome">${esc(p.nome || '(sem nome)')}${p.ativo === false ? ' <span class="perfil-off">inativo</span>' : ''}${p.trocarSenha ? ' <span class="perfil-prov">senha provisória</span>' : ''}</div><div class="perfil-un">${esc(un)}</div></div>
       <div class="perfil-acts">
         <button class="btn btn-ghost btn-xs" onclick="togglePerfilAtivo('${id}')">${p.ativo === false ? 'Ativar' : 'Desativar'}</button>
         <button class="btn btn-ghost btn-xs" onclick="openPerfilEditor('${id}')">Editar</button>
@@ -616,6 +616,8 @@ async function salvarPerfil() {
   if (codVal) { if (codVal.length < 4) { alert('O código deve ter ao menos 4 caracteres.'); return; } codigoHash = await sha256(codVal); }
   if (!codigoHash) { alert('Defina um código de acesso para o perfil.'); return; }
   const rec = { nome, codigo: codigoHash, unidades: st.unidades.slice(), modulos: {}, ativo: st.ativo !== false, criadoEm: existing ? (existing.criadoEm || Date.now()) : Date.now() };
+  // Senha definida/redefinida agora = provisória: o funcionário troca no 1o acesso.
+  rec.trocarSenha = codVal ? true : (existing ? existing.trocarSenha === true : true);
   st.unidades.forEach(k => { rec.modulos[k] = (st.modulos[k] || []).slice(); });
   try {
     await db.ref('config/perfis/' + st.id).set(rec);
@@ -4040,9 +4042,10 @@ function showLogin() {
   if (!l) return;
   const inp = document.getElementById('login-code');
   if (inp) inp.value = '';
-  ['login-user', 'login-pass'].forEach(id => { const e = document.getElementById(id); if (e) e.value = ''; });
+  ['login-user', 'login-pass', 'login-nova', 'login-nova2'].forEach(id => { const e = document.getElementById(id); if (e) e.value = ''; });
   document.getElementById('login-err').textContent = '';
   const pe = document.getElementById('login-perfil-err'); if (pe) pe.textContent = '';
+  profileTrocar = null;
   setLoginMode('code');
   l.classList.add('show');
   if (!applyLoginLock()) setTimeout(() => { if (inp) inp.focus(); }, 80);
@@ -4065,18 +4068,32 @@ function showUnitWelcome(key) {
     setTimeout(() => { w.classList.remove('show'); w.classList.remove('fade'); }, 450);
   }, 1300);
 }
+let profileTrocar = null; // { pid, mp } perfil que precisa definir a senha no 1o acesso
 function setLoginMode(mode) {
-  const vc = document.getElementById('login-view-code'), vp = document.getElementById('login-view-perfil');
-  if (!vc || !vp) return;
-  if (mode === 'perfil') {
-    vc.style.display = 'none'; vp.style.display = '';
-    const e = document.getElementById('login-err'); if (e) e.textContent = '';
-    setTimeout(() => { const u = document.getElementById('login-user'); if (u) u.focus(); }, 50);
-  } else {
-    vp.style.display = 'none'; vc.style.display = '';
-    const e = document.getElementById('login-perfil-err'); if (e) e.textContent = '';
-    setTimeout(() => { const c = document.getElementById('login-code'); if (c) c.focus(); }, 50);
-  }
+  const views = { code: 'login-view-code', perfil: 'login-view-perfil', trocar: 'login-view-trocar' };
+  Object.values(views).forEach(id => { const e = document.getElementById(id); if (e) e.style.display = 'none'; });
+  const target = document.getElementById(views[mode] || views.code); if (target) target.style.display = '';
+  ['login-err', 'login-perfil-err', 'login-trocar-err'].forEach(id => { const e = document.getElementById(id); if (e) e.textContent = ''; });
+  const focusId = mode === 'perfil' ? 'login-user' : mode === 'trocar' ? 'login-nova' : 'login-code';
+  setTimeout(() => { const e = document.getElementById(focusId); if (e) e.focus(); }, 50);
+}
+async function submitTrocarSenha() {
+  const n1 = (document.getElementById('login-nova').value || '').trim();
+  const n2 = (document.getElementById('login-nova2').value || '').trim();
+  const err = document.getElementById('login-trocar-err');
+  if (n1.length < 4) { err.textContent = 'A senha deve ter ao menos 4 caracteres.'; return; }
+  if (n1 !== n2) { err.textContent = 'As senhas não conferem.'; return; }
+  if (!profileTrocar) { setLoginMode('perfil'); return; }
+  const btn = document.getElementById('login-trocar-btn'); btn.disabled = true; btn.textContent = 'Salvando…';
+  try {
+    ensureApp(); if (authReady) await authReady;
+    const hash = await sha256(n1);
+    await db.ref('config/perfis/' + profileTrocar.pid).update({ codigo: hash, trocarSenha: false });
+    const mp = Object.assign({}, profileTrocar.mp, { codigo: hash, trocarSenha: false });
+    profileTrocar = null;
+    entrarComPerfil(mp);
+  } catch (e) { console.error(e); err.textContent = 'Não foi possível salvar. Tente de novo.'; }
+  finally { btn.disabled = false; btn.textContent = 'Salvar e entrar'; }
 }
 // Entra com um perfil já validado (uma unidade → direto; várias → seleção filtrada).
 function entrarComPerfil(mp) {
@@ -4118,12 +4135,20 @@ async function submitProfileLogin() {
     if (firebase.auth && !firebase.auth().currentUser) { err.textContent = 'Não foi possível autenticar. Tente novamente.'; return; }
     const hash = await sha256(pass);
     const perfis = (await db.ref('config/perfis').once('value')).val() || {};
-    let mp = null;
+    let mp = null, mpid = null;
     for (const pid in perfis) {
       const p = perfis[pid];
-      if (p && p.ativo !== false && (p.nome || '').trim().toLowerCase() === user.toLowerCase() && p.codigo === hash) { mp = p; break; }
+      if (p && p.ativo !== false && (p.nome || '').trim().toLowerCase() === user.toLowerCase() && p.codigo === hash) { mp = p; mpid = pid; break; }
     }
     if (mp) {
+      localStorage.removeItem('mtnc_login_fails'); localStorage.removeItem('mtnc_login_lock');
+      // Primeiro acesso: senha provisória → obriga a definir a própria senha.
+      if (mp.trocarSenha === true) {
+        profileTrocar = { pid: mpid, mp };
+        pinp.value = '';
+        setLoginMode('trocar');
+        return;
+      }
       const r = entrarComPerfil(mp);
       if (r.erro) { err.textContent = r.erro; pinp.value = ''; }
       return;
