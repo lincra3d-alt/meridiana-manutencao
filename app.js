@@ -4036,9 +4036,10 @@ function applyLoginLock() {
   const rem = loginLockRemaining();
   if (rem > 0) {
     const min = Math.ceil(rem / 60000);
-    if (inp) inp.disabled = true;
-    if (btn) btn.disabled = true;
-    err.textContent = `Muitas tentativas. Acesso bloqueado. Contate a diretoria (libera em ${min} min).`;
+    // NÃO desabilita os campos: a diretoria ainda pode entrar com a senha master.
+    if (inp) inp.disabled = false;
+    if (btn) btn.disabled = false;
+    err.textContent = `Muitas tentativas. Bloqueado por ${min} min (a senha master ainda entra).`;
     return true;
   }
   if (inp) inp.disabled = false;
@@ -4186,7 +4187,6 @@ async function submitLoginCode() {
   const btn = document.getElementById('login-btn');
   const code = (inp.value || '').trim();
   if (!code) return;
-  if (loginLockRemaining() > 0) { applyLoginLock(); return; }
   err.textContent = '';
   btn.disabled = true; btn.textContent = 'Entrando…';
   try {
@@ -4215,6 +4215,8 @@ async function submitLoginCode() {
       document.getElementById('landing').classList.remove('hidden');
       return;
     }
+    // Passou da master: a partir daqui respeita o bloqueio por tentativas.
+    if (loginLockRemaining() > 0) { applyLoginLock(); return; }
     // Código de unidade → entra direto só naquela unidade.
     const pinsSnap = await db.ref('config/hotelPins').once('value');
     const pins = pinsSnap.val() || {};
