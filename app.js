@@ -1290,6 +1290,7 @@ function buildViews() {
   if (rel) rel.innerHTML = `
     <h2 class="modview-title">Relatórios</h2>
     <div class="rep-bars">
+      ${isFrota ? `<button class="rep-bar" onclick="openRelBusca()"><div class="rep-bar-t">🔎 Buscar por data (serviços e viagens)</div><div class="rep-bar-d">Procura em TODOS os meses por período, serviço, carro ou motorista. Mostra a prévia na tela antes de imprimir.</div></button>` : ''}
       <button class="rep-bar" onclick="openPdf()"><div class="rep-bar-t">Relatório de Serviços · Todos</div><div class="rep-bar-d">Todos os serviços do mês. Abre a tela de filtros.</div></button>
       <button class="rep-bar" onclick="openPdf('PLANEJADO')"><div class="rep-bar-t">${isFrota ? 'Serviços' : 'Serviços Planejados'}</div><div class="rep-bar-d">Só ${isFrota ? 'os serviços de manutenção' : 'os serviços planejados'} do mês.</div></button>
       <button class="rep-bar" onclick="openPdf('EMERGENCIAL')"><div class="rep-bar-t">${isFrota ? 'Viagem' : 'Emergenciais'}</div><div class="rep-bar-d">Só ${isFrota ? 'as viagens' : 'os serviços emergenciais'} do mês.</div></button>
@@ -3588,6 +3589,92 @@ function runPdfExport() {
     swaps.forEach(s => s.remove());
     summary.remove();
   }, 200);
+}
+
+// ─── BUSCA DE RELATÓRIO POR DATA (Carros) ───────────────────────────────────────
+function openRelBusca() {
+  const servs = [...new Set([...(SERVICOS || []), ...(DESTINOS || [])])].sort();
+  document.getElementById('rb-serv').innerHTML = `<option value="">Todos</option>` + servs.map(s => `<option value="${esc(s)}">${esc(s)}</option>`).join('');
+  const cars = [...(VEICULOS || [])].sort();
+  document.getElementById('rb-car').innerHTML = `<option value="">Todos</option>` + cars.map(c => `<option value="${esc(c)}">${esc(c)}</option>`).join('');
+  ['rb-de', 'rb-ate', 'rb-func'].forEach(id => { const e = document.getElementById(id); if (e) e.value = ''; });
+  ['rb-tipo', 'rb-serv', 'rb-car'].forEach(id => { const e = document.getElementById(id); if (e) e.value = ''; });
+  document.getElementById('ov-relbusca').classList.add('show');
+}
+function closeRelBusca() { document.getElementById('ov-relbusca').classList.remove('show'); }
+function runRelBusca() {
+  const de = document.getElementById('rb-de').value;
+  const ate = document.getElementById('rb-ate').value;
+  const tipo = document.getElementById('rb-tipo').value;
+  const serv = (document.getElementById('rb-serv').value || '').toUpperCase();
+  const car = (document.getElementById('rb-car').value || '').toUpperCase();
+  const func = (document.getElementById('rb-func').value || '').trim().toUpperCase();
+  const norm = v => (v || '').toString().trim().toUpperCase();
+  const rows = [];
+  DATA.forEach((m, mi) => (Array.isArray(m) ? m : []).forEach(r => {
+    if (!r || r.pendente) return;
+    if (tipo && canonTipo(r.tipo) !== tipo) return;
+    const dref = r.ini || r.dtid || r.fim;
+    if ((de || ate) && !inDateRange(dref, de, ate)) return;
+    if (serv && norm(r.serv) !== serv) return;
+    if (car && norm(r.area) !== car) return;
+    if (func && !norm(r.func).includes(func)) return;
+    rows.push({ mes: MONTHS[mi], r });
+  }));
+  rows.sort((a, b) => { const da = pd(a.r.ini || a.r.dtid), db2 = pd(b.r.ini || b.r.dtid); return (da ? da.getTime() : 0) - (db2 ? db2.getTime() : 0); });
+  abrirPreviaRel(rows, { de, ate, tipo, serv, car, func });
+  closeRelBusca();
+}
+function abrirPreviaRel(rows, f) {
+  const w = window.open('', '_blank');
+  if (!w) { alert('Permita pop-ups para ver a prévia do relatório.'); return; }
+  const totalKm = rows.reduce((s, x) => { const k = kmRodado(x.r); return s + (k === '' ? 0 : k); }, 0);
+  const conc = rows.filter(x => canonStat(x.r.stat) === 'CONCLUIDO').length;
+  const linhas = rows.map(x => {
+    const r = x.r, km = kmRodado(r);
+    return `<tr>
+      <td>${esc(fmtBR(toISO(r.ini || r.dtid)))}</td>
+      <td>${esc(r.area || '')}</td>
+      <td>${esc(r.serv || '')}</td>
+      <td>${r.tipo === 'EMERGENCIAL' ? 'Viagem' : 'Serviço'}</td>
+      <td>${esc(r.func || '')}</td>
+      <td class="r">${esc(r.kmIni || '')}</td>
+      <td class="r">${esc(r.kmFim || '')}</td>
+      <td class="r">${km === '' ? '' : km}</td>
+      <td>${esc(r.desc || '')}</td>
+    </tr>`;
+  }).join('');
+  const filtroTxt = [
+    (f.de || f.ate) ? `Período: ${f.de ? fmtBR(f.de) : '…'} a ${f.ate ? fmtBR(f.ate) : '…'}` : 'Período: todos os meses',
+    f.tipo ? `Tipo: ${f.tipo === 'EMERGENCIAL' ? 'Viagem' : 'Serviço'}` : '',
+    f.serv ? `Serviço/Destino: ${esc(f.serv)}` : '',
+    f.car ? `Carro: ${esc(f.car)}` : '',
+    f.func ? `Motorista contém: ${esc(f.func)}` : '',
+  ].filter(Boolean).join(' · ');
+  const corpo = rows.length
+    ? `<table><thead><tr><th>Data</th><th>Carro</th><th>Serviço/Destino</th><th>Tipo</th><th>Motorista</th><th class="r">KM ini</th><th class="r">KM fim</th><th class="r">Rodado</th><th>Descrição</th></tr></thead><tbody>${linhas}</tbody></table>`
+    : `<p style="color:#a00;margin-top:18px">Nenhum resultado para esses filtros.</p>`;
+  w.document.write(`<!doctype html><html><head><meta charset="utf-8"><title>Relatório · ${esc(hotelInfo().name)}</title>
+    <style>
+    body{font-family:Arial,Helvetica,sans-serif;color:#111;margin:26px}
+    h1{font-size:18px;margin:0 0 2px}.sub{color:#555;font-size:12px;margin-bottom:4px}
+    .filtro{font-size:12px;color:#333;margin:8px 0 4px}
+    .resumo{font-size:12px;color:#333;margin:2px 0 14px;font-weight:bold}
+    table{width:100%;border-collapse:collapse;font-size:11px}
+    th,td{border:1px solid #ccc;padding:4px 6px;text-align:left;vertical-align:top}
+    th{background:#f2f2f2}.r{text-align:right}
+    .topbar{position:sticky;top:0;background:#fff;padding:8px 0 12px;border-bottom:1px solid #eee;margin-bottom:12px}
+    .btn{background:#c49a3c;color:#1a1408;border:none;border-radius:6px;padding:9px 16px;font-size:13px;font-weight:bold;cursor:pointer}
+    @media print{.topbar,.btn{display:none}body{margin:0}}
+    </style></head><body>
+    <div class="topbar"><button class="btn" onclick="window.print()">🖨 Imprimir</button> <span style="font-size:12px;color:#666;margin-left:10px">Confira abaixo e clique em Imprimir quando estiver certo.</span></div>
+    <h1>Relatório · ${esc(hotelInfo().name)}</h1>
+    <div class="sub">Grupo Meridiana · Búzios/RJ · emitido em ${new Date().toLocaleDateString('pt-BR', { day: '2-digit', month: 'long', year: 'numeric' })}</div>
+    <div class="filtro">${filtroTxt}</div>
+    <div class="resumo">${rows.length} registro(s)${conc ? ' · ' + conc + ' concluído(s)' : ''}${totalKm ? ' · ' + totalKm.toLocaleString('pt-BR') + ' km rodados' : ''}</div>
+    ${corpo}
+    </body></html>`);
+  w.document.close();
 }
 
 // ─── PENDENTES PANEL ──────────────────────────────────────────────────────────

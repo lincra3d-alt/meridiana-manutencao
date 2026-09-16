@@ -721,6 +721,26 @@
   </div>
 </div>
 
+<!-- ── MODAL: Buscar relatório por data (Carros) ── -->
+<div class="ov" id="ov-relbusca">
+  <div class="modal" style="width:520px;max-width:96vw">
+    <h3>🔎 Buscar serviços e viagens</h3>
+    <p class="modview-note" style="margin-bottom:12px">Procura em todos os meses. Deixe em branco o que não quiser filtrar.</p>
+    <div style="display:flex;gap:10px">
+      <div class="mrow" style="flex:1"><label>De</label><input class="minput" id="rb-de" type="date"></div>
+      <div class="mrow" style="flex:1"><label>Até</label><input class="minput" id="rb-ate" type="date"></div>
+    </div>
+    <div class="mrow"><label>Tipo</label><select class="msel" id="rb-tipo"><option value="">Todos</option><option value="PLANEJADO">Serviço (manutenção)</option><option value="EMERGENCIAL">Viagem</option></select></div>
+    <div class="mrow"><label>Serviço / Destino</label><select class="msel" id="rb-serv"></select></div>
+    <div class="mrow"><label>Carro</label><select class="msel" id="rb-car"></select></div>
+    <div class="mrow"><label>Motorista (contém)</label><input class="minput" id="rb-func" placeholder="ex: Edinho" autocomplete="off"></div>
+    <div class="mactions">
+      <button class="btn btn-ghost btn-xs" onclick="closeRelBusca()">Cancelar</button>
+      <button class="btn btn-gold btn-xs" onclick="runRelBusca()">🔎 Buscar e ver prévia</button>
+    </div>
+  </div>
+</div>
+
 <!-- ── MODAL: Perfis de acesso (só Área Administrativa) ── -->
 <div class="ov" id="ov-perfis">
   <div class="modal" style="width:780px;max-width:96vw;max-height:90vh;padding:0;position:relative;display:flex;flex-direction:column;overflow:hidden">
@@ -744,6 +764,6 @@
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
-<script src="app.js?v=93"></script>
+<script src="app.js?v=94"></script>
 </body>
 </html>
