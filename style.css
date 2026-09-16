@@ -243,6 +243,10 @@ header{background:var(--s1);border-bottom:1px solid var(--border);padding:13px 2
 .perfil-mchk input{cursor:pointer}
 .login-switch{display:block;width:100%;margin-top:16px;background:none;border:none;color:var(--gold2);font-family:'Jost',sans-serif;font-size:11.5px;cursor:pointer;text-decoration:underline;opacity:.85;letter-spacing:.3px}
 .login-switch:hover{opacity:1}
+.mr-val.mr-aberta{color:var(--info2);font-weight:700}
+.pend-viagem{display:inline-block;font-size:11px;font-weight:700;letter-spacing:.3px;padding:3px 9px;border-radius:6px}
+.pend-viagem.aberta{color:var(--info2);background:rgba(88,166,255,.14);border:1px solid rgba(88,166,255,.45)}
+.pend-viagem.fechada{color:#3fb950;background:rgba(63,185,80,.14);border:1px solid rgba(63,185,80,.45)}
 /* ── INVENTÁRIO ── */
 .inv-toolbar{display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin:16px 0 4px}
 .inv-toolbar .sw{flex:1 1 220px;max-width:340px;min-width:160px}

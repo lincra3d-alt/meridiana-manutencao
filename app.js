@@ -390,8 +390,19 @@ function metaRightCell(r) {
   if (r.confMant && !isConc(r)) lines.push('<div class="mr-line mr-conf"><span class="mr-lbl">✓ Manutentor concluiu</span><span class="mr-val">conferir</span></div>');
   if (r.ts) lines.push(line('', '🕐 Adicionado', fmtDT(r.ts)));
   if (isConc(r) && r.tsFim) lines.push(line('mr-ok', '✓ Concluído', fmtDT(r.tsFim)));
-  lines.push(line('', '🔎 Identificado', esc(r.ident) || '—'));
-  lines.push(line('', '👤 Responsável', esc(r.func) || '—'));
+  if (isViagemRow(r)) {
+    const aberta = !(r.kmFim === 0 || r.kmFim);
+    lines.push(line('', '🚗 KM inicial', r.kmIni ? esc(String(r.kmIni)) : '—'));
+    lines.push(aberta
+      ? '<div class="mr-line"><span class="mr-lbl">🏁 KM final</span><span class="mr-val mr-aberta">em aberto</span></div>'
+      : line('mr-ok', '🏁 KM final', esc(String(r.kmFim))));
+    const rod = kmRodado(r);
+    if (rod !== '') lines.push(line('', '📏 Rodado', rod + ' km'));
+    lines.push(line('', '👤 Motorista', esc(r.func) || '—'));
+  } else {
+    lines.push(line('', '🔎 Identificado', esc(r.ident) || '—'));
+    lines.push(line('', '👤 Responsável', esc(r.func) || '—'));
+  }
   if (r.foto && /^https:\/\//.test(r.foto)) lines.push(`<a href="${esc(r.foto)}" target="_blank" rel="noopener" onclick="event.stopPropagation()"><img class="card-foto" src="${esc(r.foto)}" alt="foto"></a>`);
   td.innerHTML = lines.join('');
   return td;
@@ -3739,12 +3750,14 @@ function renderPendentesPanel() {
         <span class="prio ${prioClass(r.prio || 'MEDIA')}">${prioLabel(r.prio || 'MEDIA')}</span>
       </div>
       <div class="pend-item-meta">
+        ${isViagemRow(r) ? `<span class="pend-viagem ${(r.kmFim === 0 || r.kmFim) ? 'fechada' : 'aberta'}">${(r.kmFim === 0 || r.kmFim) ? '🏁 Viagem finalizada' : '🚗 Viagem EM ABERTO'}${typeof r.num === 'number' ? ' · Viagem ' + pad3(r.num) : ''}</span>` : ''}
         ${r.setor ? `<span class="pend-setor">🏷 ${esc(r.setor)}</span>` : ''}
         ${r.confMant ? `<span class="pend-conf">✓ Manutentor concluiu · conferir</span>` : ''}
         <span class="st ${stClass(r.stat)}">${stLabel(r.stat)}</span>
         <span class="sv ${svClass(r.serv)}">${esc(r.serv) || '—'}</span>
-        ${r.ident ? `<span style="font-size:10.5px;color:var(--muted)">🔎 Identificado por ${esc(r.ident)}</span>` : ''}
-        ${r.func ? `<span style="font-size:10.5px;color:var(--muted)">👤 Responsável ${esc(r.func)}</span>` : ''}
+        ${isViagemRow(r) ? `<span style="font-size:10.5px;color:var(--muted)">📏 KM ${esc(r.kmIni) || '—'}${(r.kmFim === 0 || r.kmFim) ? ' → ' + esc(r.kmFim) : ' (sem final)'}</span>` : ''}
+        ${(r.ident && !isViagemRow(r)) ? `<span style="font-size:10.5px;color:var(--muted)">🔎 Identificado por ${esc(r.ident)}</span>` : ''}
+        ${r.func ? `<span style="font-size:10.5px;color:var(--muted)">${isViagemRow(r) ? '👤 Motorista' : '👤 Responsável'} ${esc(r.func)}</span>` : ''}
         ${r.dtid ? `<span style="font-size:10.5px;color:var(--muted)">📅 ${esc(r.dtid)}</span>` : ''}
         ${r.codigo ? `<span style="font-size:10.5px;color:var(--gold2);font-weight:600">🔑 Código ${esc(r.codigo)}</span>` : ''}
       </div>
