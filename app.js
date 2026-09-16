@@ -3597,7 +3597,7 @@ function openRelBusca() {
   document.getElementById('rb-serv').innerHTML = `<option value="">Todos</option>` + servs.map(s => `<option value="${esc(s)}">${esc(s)}</option>`).join('');
   const cars = [...(VEICULOS || [])].sort();
   document.getElementById('rb-car').innerHTML = `<option value="">Todos</option>` + cars.map(c => `<option value="${esc(c)}">${esc(c)}</option>`).join('');
-  ['rb-de', 'rb-ate', 'rb-func'].forEach(id => { const e = document.getElementById(id); if (e) e.value = ''; });
+  ['rb-de', 'rb-ate', 'rb-func', 'rb-txt'].forEach(id => { const e = document.getElementById(id); if (e) e.value = ''; });
   ['rb-tipo', 'rb-serv', 'rb-car'].forEach(id => { const e = document.getElementById(id); if (e) e.value = ''; });
   document.getElementById('ov-relbusca').classList.add('show');
 }
@@ -3610,6 +3610,9 @@ function runRelBusca() {
   const car = (document.getElementById('rb-car').value || '').toUpperCase();
   const func = (document.getElementById('rb-func').value || '').trim().toUpperCase();
   const norm = v => (v || '').toString().trim().toUpperCase();
+  // texto sem acento (para "oleo" achar "óleo" e "OLEO")
+  const semAcento = v => (v || '').toString().normalize('NFD').replace(/[̀-ͯ]/g, '').toUpperCase().trim();
+  const txt = semAcento(document.getElementById('rb-txt') ? document.getElementById('rb-txt').value : '');
   const rows = [];
   DATA.forEach((m, mi) => (Array.isArray(m) ? m : []).forEach(r => {
     if (!r || r.pendente) return;
@@ -3619,6 +3622,7 @@ function runRelBusca() {
     if (serv && norm(r.serv) !== serv) return;
     if (car && norm(r.area) !== car) return;
     if (func && !norm(r.func).includes(func)) return;
+    if (txt && !semAcento((r.serv || '') + ' ' + (r.desc || '')).includes(txt)) return;
     rows.push({ mes: MONTHS[mi], r });
   }));
   rows.sort((a, b) => { const da = pd(a.r.ini || a.r.dtid), db2 = pd(b.r.ini || b.r.dtid); return (da ? da.getTime() : 0) - (db2 ? db2.getTime() : 0); });
