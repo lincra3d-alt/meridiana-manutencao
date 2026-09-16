@@ -382,8 +382,9 @@ function rebuildArea(current) {
   const aSel = document.getElementById('f-area');
   if (!aSel || aSel.tagName !== 'SELECT') return;
   const list = isPlan ? [...VEH_ALL, ...GER_ALL] : VEH_ALL;
-  aSel.innerHTML = list.map(v => `<option value="${v}">${v}</option>`).join('') + `<option value="__ADD__">➕ Adicionar (admin)…</option>`;
-  if (current && list.includes(current)) aSel.value = current;
+  const labelBranco = isPlan ? 'Selecione o automotor…' : 'Selecione o carro…';
+  aSel.innerHTML = `<option value="">${labelBranco}</option>` + list.map(v => `<option value="${v}">${v}</option>`).join('') + `<option value="__ADD__">➕ Adicionar (admin)…</option>`;
+  aSel.value = (current && list.includes(current)) ? current : '';
 }
 function fillCarSelects() {
   const opts = `<option value="">Selecione o carro…</option>` + VEH_ALL.map(v => `<option value="${v}">${v}</option>`).join('');
@@ -442,10 +443,13 @@ const isViagemForm = (hotelKey === 'carros' && !isPlan);
 let SERV_ALL = [...servBase];
 function fillServ(selected) {
   const sel = document.getElementById('f-serv');
-  let html = SERV_ALL.map(s => `<option value="${s}">${s}</option>`).join('');
+  const viagem = (hotelKey === 'carros' && !isPlan);
+  const blank = viagem ? `<option value="">Selecione o destino…</option>` : '';
+  let html = blank + SERV_ALL.map(s => `<option value="${s}">${s}</option>`).join('');
   if (hotelKey === 'carros') html += `<option value="__ADD__">➕ Adicionar (admin)…</option>`;
   sel.innerHTML = html;
-  sel.value = (selected && SERV_ALL.includes(selected)) ? selected : (SERV_ALL.includes('REPAROS') ? 'REPAROS' : SERV_ALL[0]);
+  if (viagem) sel.value = (selected && SERV_ALL.includes(selected)) ? selected : '';
+  else sel.value = (selected && SERV_ALL.includes(selected)) ? selected : (SERV_ALL.includes('REPAROS') ? 'REPAROS' : SERV_ALL[0]);
 }
 document.getElementById('f-serv').addEventListener('change', onServChange);
 authReady.then(() => db.ref(`${HOTEL.path}/${servNode}`).once('value')).then(snap => {
@@ -469,6 +473,7 @@ async function enviar() {
 
   if (isGeral && !setor) { showMsg('⚠ Selecione o setor.', 'err'); return; }
   if (!area) { showMsg('⚠ Selecione o carro / preencha a área.', 'err'); return; }
+  if (hotelKey === 'carros' && !isPlan && !serv) { showMsg('⚠ Selecione o destino.', 'err'); return; }
   if (!desc && !(hotelKey === 'carros' && !isPlan)) { showMsg('⚠ Descreva o serviço.', 'err'); return; }
 
   const btn = document.getElementById('btn-send');
@@ -650,21 +655,26 @@ async function onAreaChange() {
 }
 
 async function prefillKm(car) {
-  if (!car || car === '__ADD__') return;
+  const f = document.getElementById('f-kmini');
+  if (!car || car === '__ADD__') { if (f) f.value = ''; return; }
   try {
     await authReady;
     const snap = await db.ref(HOTEL.path).once('value');
     const val = snap.val() || {};
     const data = Array.isArray(val.data) ? val.data : [];
-    let best = null, bestTs = -1;
+    // KM inicial sugerido = KM final da ULTIMA viagem do carro (maior numero de viagem).
+    // Usar o "maior KM" seria fragil: um erro de digitacao antigo ficaria travado.
+    let best = null, bestKey = -Infinity;
     data.forEach(m => (m || []).forEach(r => {
-      if (r.tipo === 'EMERGENCIAL' && r.area === car && (r.kmFim === 0 || r.kmFim)) {
-        const ts = r.ts || 0;
-        if (ts >= bestTs) { bestTs = ts; best = r; }
+      if (r.tipo === 'EMERGENCIAL' && r.area === car) {
+        const kf = parseFloat(r.kmFim);
+        if (isFinite(kf)) {
+          const key = (typeof r.num === 'number' ? r.num * 1e13 : 0) + (r.tsFim || r.ts || 0);
+          if (key > bestKey) { bestKey = key; best = r; }
+        }
       }
     }));
-    const f = document.getElementById('f-kmini');
-    if (f && best && best.kmFim) f.value = best.kmFim;
+    if (f) f.value = best ? best.kmFim : '';
   } catch (e) { console.error(e); }
 }
 

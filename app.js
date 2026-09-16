@@ -1239,7 +1239,6 @@ function validModule(k) {
   if (lib) return lib.includes(k) ? k : (lib[0] || 'dash');
   // Sem perfil (master): regras por capacidade da unidade.
   if (k === 'asg' && hotelInfo().frota) return 'dash';
-  if (k === 'gest' && hotelInfo().frota) return 'dash';
   if (k === 'cont' && !hotelInfo().contagem) return 'dash';
   if (k === 'gov' && !hotelInfo().governanca) return 'dash';
   if (k === 'inv' && !hotelInfo().inventario) return 'dash';
@@ -1250,7 +1249,7 @@ function validModule(k) {
 function modulosDaUnidade(key) {
   const h = HOTELS.find(x => x.key === key) || {};
   const mods = [{ k: 'dash', lbl: 'Dashboard' }];
-  if (h.frota) mods.push({ k: 'plan', lbl: 'Serviços' }, { k: 'emrg', lbl: 'Viagem' });
+  if (h.frota) mods.push({ k: 'plan', lbl: 'Serviços' }, { k: 'emrg', lbl: 'Viagem' }, { k: 'gest', lbl: 'Gestão' });
   else {
     mods.push({ k: 'plan', lbl: 'Planejados' }, { k: 'emrg', lbl: 'Emergencial' }, { k: 'asg', lbl: 'ASG' });
     if (h.contagem) mods.push({ k: 'cont', lbl: 'Contagem' });
@@ -1339,6 +1338,15 @@ function buildViews() {
         ${hotelInfo().contagem ? `<button class="rep-bar" onclick="openLinkContagem()"><div class="rep-bar-t">📋 Contagens</div><div class="rep-bar-d">Link para a equipe fazer a contagem de itens. Quem abre escolhe o setor e envia. O resultado aparece no módulo Contagem.</div></button>` : ''}
         ${hotelInfo().governanca ? `<button class="rep-bar" onclick="openLinkGov('contagem')"><div class="rep-bar-t">🧺 Governança · Contagem (mensal)</div><div class="rep-bar-d">Link para a equipe contar o enxoval por bloco e quarto. Cai nos Recebidos da Governança.</div></button>
         <button class="rep-bar" onclick="openLinkGov('inventario')"><div class="rep-bar-t">🧺 Governança · Inventário (semestral)</div><div class="rep-bar-d">Link do inventário completo (quartos, rouparia e danificados).</div></button>` : ''}
+      </div>`;
+  }
+  if (gest && isFrota) {
+    gest.innerHTML = `
+      <h2 class="modview-title">Gestão · Links Públicos</h2>
+      <p class="modview-note">Compartilhe estes links (ou o QR Code) com os motoristas e o setor da frota.</p>
+      <div class="rep-bars" style="margin-top:16px">
+        <button class="rep-bar" onclick="openLinkPublico()"><div class="rep-bar-t">🚗 Viagens</div><div class="rep-bar-d">Link para o motorista abrir, abastecer e finalizar viagens. Ele escolhe o carro e o destino, e a KM inicial já vem do último KM do carro.</div></button>
+        <button class="rep-bar" onclick="openLinkPublico('PLANEJADO')"><div class="rep-bar-t">🔧 ${L.plan}</div><div class="rep-bar-d">Link para lançar serviços de manutenção da frota (revisão, troca de óleo, etc.).</div></button>
       </div>`;
   }
   if (hotelInfo().contagem) renderContagemView();
