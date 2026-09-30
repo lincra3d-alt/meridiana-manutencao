@@ -156,14 +156,15 @@ function govRoupariaItens(tipo) {
 // Regra por item: {m:'x'} → quartos × v ; {m:'+'} → quartos + v. Sem regra = padrão ×3.
 function govMinRegra(nome) {
   const r = GOV_MINIMOS && GOV_MINIMOS[nome];
-  if (r && (r.m === 'x' || r.m === '+') && isFinite(Number(r.v))) return { m: r.m, v: Number(r.v) };
+  if (r && (r.m === 'x' || r.m === '+' || r.m === '=') && isFinite(Number(r.v))) return { m: r.m, v: Number(r.v) };
   return { m: 'x', v: GOV_JOGOS_MIN };
 }
+function govMinModoOk(m) { return m === '+' ? '+' : m === '=' ? '=' : 'x'; }
 function govMinItem(nome, quartos) {
   const q = Number(quartos) || 0, r = govMinRegra(nome);
-  return r.m === '+' ? q + r.v : q * r.v;
+  return r.m === '=' ? r.v : r.m === '+' ? q + r.v : q * r.v;
 }
-function govMinLabel(nome) { const r = govMinRegra(nome); return r.m === '+' ? '+' + r.v : '×' + r.v; }
+function govMinLabel(nome) { const r = govMinRegra(nome); return r.m === '=' ? '=' + r.v : r.m === '+' ? '+' + r.v : '×' + r.v; }
 function saveGovMinimos() { if (!db) return; db.ref(`${hotelPath()}/governancaMinimos`).set(Object.keys(GOV_MINIMOS).length ? GOV_MINIMOS : null); }
 // Total real de peças: quartos + rouparia, SEM contar os danificados.
 function govTotalReal(tipo) {
@@ -3141,6 +3142,7 @@ function renderGovMin() {
       <select class="govmin-modo" onchange="govMinField(${i},'m',this.value)">
         <option value="x"${r.m === 'x' ? ' selected' : ''}>× multiplica</option>
         <option value="+"${r.m === '+' ? ' selected' : ''}>+ soma fixa</option>
+        <option value="="${r.m === '=' ? ' selected' : ''}>= total fixo</option>
       </select>
       <input class="govmin-v" type="number" min="0" step="1" value="${r.v}" oninput="govMinField(${i},'v',this.value)"></div>`;
   }).join('');
@@ -3148,11 +3150,11 @@ function renderGovMin() {
 }
 function govMinField(i, campo, val) {
   const n = govMinKeys[i]; if (!n || !govMinEdit[n]) return;
-  if (campo === 'm') govMinEdit[n].m = (val === '+' ? '+' : 'x');
+  if (campo === 'm') govMinEdit[n].m = govMinModoOk(val);
   else govMinEdit[n].v = Math.max(0, parseInt(val, 10) || 0);
 }
 function govMinAplicarTodos() {
-  const m = document.getElementById('govmin-all-modo').value === '+' ? '+' : 'x';
+  const m = govMinModoOk(document.getElementById('govmin-all-modo').value);
   const v = Math.max(0, parseInt(document.getElementById('govmin-all-v').value, 10) || 0);
   govMinKeys.forEach(n => { govMinEdit[n] = { m, v }; });
   renderGovMin();

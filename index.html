@@ -763,10 +763,10 @@
     <button class="cont-close" onclick="closeGovMin()" title="Fechar" aria-label="Fechar">✕</button>
     <div style="padding:22px 22px 0">
       <h3 class="cont-h4" style="margin-top:0">🧺 Mínimos do enxoval</h3>
-      <p class="cont-hint">Dotação mínima de cada item. <b>× multiplica</b> os quartos (ex.: toalha ×3, roda na lavanderia). <b>+ soma fixa</b> aos quartos (ex.: travesseiro +20, só uma reserva). Padrão: ×3.</p>
+      <p class="cont-hint">Dotação mínima de cada item. <b>× multiplica</b> os quartos (ex.: toalha ×3). <b>+ soma fixa</b> aos quartos (ex.: travesseiro +20). <b>= total fixo</b> ignora os quartos e usa o número cheio (ex.: 202). Padrão: ×3.</p>
       <div class="govmin-apply">
         <span>Aplicar a todos:</span>
-        <select id="govmin-all-modo" class="govmin-modo"><option value="x">× multiplica</option><option value="+">+ soma fixa</option></select>
+        <select id="govmin-all-modo" class="govmin-modo"><option value="x">× multiplica</option><option value="+">+ soma fixa</option><option value="=">= total fixo</option></select>
         <input id="govmin-all-v" class="govmin-v" type="number" min="0" step="1" value="3">
         <button class="btn btn-ghost btn-xs" onclick="govMinAplicarTodos()">Aplicar</button>
       </div>
@@ -787,6 +787,6 @@
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
-<script src="app.js?v=99"></script>
+<script src="app.js?v=100"></script>
 </body>
 </html>
