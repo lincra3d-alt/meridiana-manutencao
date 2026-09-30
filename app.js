@@ -140,7 +140,10 @@ function govAggItens(tipo) { const d = GOV_DADOS[tipo] || {}; const map = {}; Ob
 function govAggItensFiltro(tipo, filtro) {
   const d = GOV_DADOS[tipo] || {}; const map = {};
   Object.keys(d).forEach(k => {
-    const ok = (filtro === 'all' || !filtro) ? GOV_BLOCOS.some(b => k.startsWith(b.k + '__')) : k.startsWith(filtro + '__');
+    let ok;
+    if (filtro === 'tudo') ok = GOV_BLOCOS.some(b => k.startsWith(b.k + '__')) || k === 'governanca__geral'; // blocos + rouparia, sem danificados
+    else if (filtro === 'all' || !filtro) ok = GOV_BLOCOS.some(b => k.startsWith(b.k + '__'));                // só os quartos
+    else ok = k.startsWith(filtro + '__');                                                                    // um bloco
     if (!ok) return;
     (d[k].itens || []).forEach(it => { if (it && it.n) map[it.n] = (map[it.n] || 0) + (Number(it.q) || 0); });
   });
@@ -3052,7 +3055,7 @@ function renderGovMain() {
   const contados = govContados(tipo), totalLocais = govLocais(tipo).length;
   const header = `<div class="gov-head">
     <div><h2 class="modview-title" style="margin:0">${t.ic} ${t.l} <span class="gov-cad">${t.cad}</span></h2>
-    <p class="gov-sub">${contados} de ${totalLocais} locais contados · <b class="gov-tot-real">${govTotalReal(tipo)}</b> peças no total <small>(quartos + rouparia, sem danificados)</small></p></div>
+    <p class="gov-sub">${contados} de ${totalLocais} locais contados</p></div>
     <div class="gov-head-btns">
       <button class="btn btn-ghost btn-xs" onclick="imprimirGov('${tipo}')">🖨 Imprimir</button>
     </div></div>`;
@@ -3109,17 +3112,25 @@ function govChartBlocos(tipo) {
 function setGovItemFiltro(bk) { govItemFiltro = bk || 'all'; renderGovMain(); }
 function govChartItens(tipo) {
   const f = govItemFiltro || 'all';
-  const isAll = (f === 'all');
+  const isAll = (f === 'all'), isTudo = (f === 'tudo');
   const opts = `<option value="all"${isAll ? ' selected' : ''}>Todos os blocos</option>` +
+    `<option value="tudo"${isTudo ? ' selected' : ''}>Tudo (blocos + rouparia)</option>` +
     GOV_BLOCOS.map(b => `<option value="${b.k}"${f === b.k ? ' selected' : ''}>${b.nome}</option>`).join('');
   const sel = `<select class="gov-item-sel" onchange="setGovItemFiltro(this.value)">${opts}</select>`;
   const head = `<div class="gov-card-t gov-item-hd"><span>Enxoval por item</span>${sel}</div>`;
   const agg = govAggItensFiltro(tipo, f);
   const roup = isAll ? govRoupariaItens(tipo) : {};
   const arr = Object.keys(agg).map(n => ({ n, q: agg[n] })).filter(x => x.q > 0).sort((a, b) => b.q - a.q);
-  if (!arr.length) return `<div class="gov-card">${head}<p class="cont-hint">Nenhum quarto contado ${isAll ? 'ainda' : 'neste bloco'}.</p></div>`;
+  if (!arr.length) return `<div class="gov-card">${head}<p class="cont-hint">Nada contado ${isAll || isTudo ? 'ainda' : 'neste bloco'}.</p></div>`;
   const max = Math.max(1, ...arr.map(x => x.q));
   let colhd, rows, nota;
+  if (isTudo) {
+    const totalGeral = arr.reduce((s, x) => s + x.q, 0);
+    colhd = `<div class="gov-delta-row gov-item-colhd"><span class="gov-delta-n"></span><span class="gov-delta-bar"></span><span class="gov-delta-v">total</span><span class="gov-min-v"></span></div>`;
+    rows = arr.map(x => `<div class="gov-delta-row"><span class="gov-delta-n">${esc(x.n)}</span><span class="gov-delta-bar"><span class="gov-delta-fill up" style="width:${x.q / max * 100}%"></span></span><span class="gov-delta-v">${x.q}</span><span class="gov-min-v"></span></div>`).join('');
+    nota = `<div class="gov-min-nota gov-tudo-tot">Total geral: <b>${totalGeral}</b> peças <small>(blocos + rouparia, sem danificados)</small></div>`;
+    return `<div class="gov-card">${head}${colhd}${rows}${nota}</div>`;
+  }
   if (isAll) {
     colhd = `<div class="gov-delta-row gov-item-colhd gov-row-all"><span class="gov-delta-n"></span><span class="gov-v-q">quartos</span><span class="gov-v-min">mínimo</span><span class="gov-v-roup">rouparia</span><span class="gov-v-buy">comprar</span></div>`;
     rows = arr.map(x => {
