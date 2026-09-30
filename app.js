@@ -553,7 +553,7 @@ async function enterAdminArea() {
     if (authReady) await authReady;
     if (!(await checkMaster(senha))) { err.textContent = 'Senha master incorreta.'; inp.value = ''; inp.focus(); return; }
   } catch (e) { console.error(e); err.textContent = 'Erro ao validar. Tente novamente.'; return; }
-  sessionStorage.setItem('mtnc_master', '1');
+  localStorage.setItem('mtnc_master', '1');
   closeAdminPin();
   // esconde login e seleção de unidade para a Área Admin não ficar atrás deles
   hideLogin();
@@ -1334,6 +1334,19 @@ function setModule(key) {
   activeModule = validModule(key);
   document.body.dataset.mod = activeModule;
   document.querySelectorAll('#mod-menu .modtab').forEach(b => b.classList.toggle('active', b.dataset.mod === activeModule));
+  refreshActiveModule();
+}
+// Re-renderiza o módulo atual com os dados mais recentes (o listener do Firebase mantém tudo atualizado).
+function refreshActiveModule() {
+  const m = activeModule;
+  try {
+    if (m === 'dash') renderDashboard();
+    else if (m === 'cont') renderContagemView();
+    else if (m === 'gov') renderGovernanca();
+    else if (m === 'inv') renderInventario();
+    else if (m === 'rel' || m === 'cad' || m === 'param' || m === 'gest') buildViews();
+    else if (MONTHS.length) renderBothTables(activeMonth); // plan / emrg / asg
+  } catch (e) { console.warn('refreshActiveModule', e); }
 }
 
 function buildViews() {
@@ -3384,7 +3397,7 @@ function confirmConfirmPend() {
 function saveAll() { pushToFirebase(); }
 
 // ─── LOG DE ALTERAÇÕES ──────────────────────────────────────────────────────────
-function logOrigem() { return sessionStorage.getItem('mtnc_master') === '1' ? 'Diretoria' : hotelInfo().name; }
+function logOrigem() { return localStorage.getItem('mtnc_master') === '1' ? 'Diretoria' : hotelInfo().name; }
 function saveLog() { if (!db) return; db.ref(`${hotelPath()}/log`).set(LOG.length ? LOG : null); }
 function logAction(acao, alvo) {
   if (!db) return;
@@ -4026,6 +4039,7 @@ function pickHotel(key) {
   localStorage.setItem('currentHotel', key);
   ensureAccess(currentHotel).then(ok => {
     if (!ok) return;
+    try { localStorage.setItem('mtnc_last_hotel', key); } catch (e) {}
     activeModule = 'dash';
     document.getElementById('landing').classList.add('hidden');
     buildHotelSelector();
@@ -4058,8 +4072,8 @@ async function sha256(str) {
 }
 
 function unlockedThisSession(key) {
-  return sessionStorage.getItem('mtnc_master') === '1'
-      || sessionStorage.getItem('mtnc_unlocked_' + key) === '1'
+  return localStorage.getItem('mtnc_master') === '1'
+      || localStorage.getItem('mtnc_unlocked_' + key) === '1'
       || !!(activeProfile && (activeProfile.unidades || []).includes(key));
 }
 
@@ -4144,7 +4158,7 @@ async function submitPin() {
   const hash = await sha256(v1);
 
   if (st.recover) {
-    if (hash === st.masterHash) { sessionStorage.setItem('mtnc_master', '1'); finishUnlock(true); }
+    if (hash === st.masterHash) { localStorage.setItem('mtnc_master', '1'); finishUnlock(true); }
     else { err.textContent = 'Senha master incorreta.'; document.getElementById('pin-1').value = ''; document.getElementById('pin-1').focus(); }
     return;
   }
@@ -4153,7 +4167,7 @@ async function submitPin() {
     const v2 = document.getElementById('pin-2').value.trim();
     if (v1 !== v2) { err.textContent = 'As senhas não conferem.'; return; }
     await db.ref('config/masterPin').set(hash);
-    sessionStorage.setItem('mtnc_master', '1');
+    localStorage.setItem('mtnc_master', '1');
     finishUnlock(true);
     return;
   }
@@ -4162,13 +4176,13 @@ async function submitPin() {
     const v2 = document.getElementById('pin-2').value.trim();
     if (v1 !== v2) { err.textContent = 'As senhas não conferem.'; return; }
     await db.ref('config/hotelPins/' + st.key).set(hash);
-    sessionStorage.setItem('mtnc_unlocked_' + st.key, '1');
+    localStorage.setItem('mtnc_unlocked_' + st.key, '1');
     finishUnlock(true);
     return;
   }
 
-  if (hash === st.unitHash) { sessionStorage.setItem('mtnc_unlocked_' + st.key, '1'); finishUnlock(true); return; }
-  if (hash === st.masterHash) { sessionStorage.setItem('mtnc_master', '1'); finishUnlock(true); return; }
+  if (hash === st.unitHash) { localStorage.setItem('mtnc_unlocked_' + st.key, '1'); finishUnlock(true); return; }
+  if (hash === st.masterHash) { localStorage.setItem('mtnc_master', '1'); finishUnlock(true); return; }
   err.textContent = 'Senha da unidade incorreta. Use "Esqueci minha senha" para entrar como admin.';
   document.getElementById('pin-1').value = '';
   document.getElementById('pin-1').focus();
@@ -4183,8 +4197,14 @@ function finishUnlock(ok) {
 
 function pinCancel() { finishUnlock(false); }
 
+function clearAccess() {
+  // limpa só os marcadores de acesso (mantém os backups locais mtnc_bkp_* e o tema)
+  ['mtnc_master', 'mtnc_profile', 'mtnc_last_hotel'].forEach(k => { try { localStorage.removeItem(k); } catch (e) {} });
+  try { Object.keys(localStorage).forEach(k => { if (k.indexOf('mtnc_unlocked_') === 0) localStorage.removeItem(k); }); } catch (e) {}
+  try { Object.keys(sessionStorage).forEach(k => { if (k.indexOf('mtnc_') === 0) sessionStorage.removeItem(k); }); } catch (e) {}
+}
 function lockApp() {
-  Object.keys(sessionStorage).forEach(k => { if (k.indexOf('mtnc_') === 0) sessionStorage.removeItem(k); });
+  clearAccess();
   backToLanding();
 }
 
@@ -4215,7 +4235,7 @@ async function adminChangeUnitPin() {
   if (np.length < 4) { admMsg('O PIN deve ter ao menos 4 dígitos.', 'err'); return; }
   if (np !== nc) { admMsg('Os PINs não conferem.', 'err'); return; }
   await db.ref('config/hotelPins/' + currentHotel).set(await sha256(np));
-  sessionStorage.setItem('mtnc_unlocked_' + currentHotel, '1');
+  localStorage.setItem('mtnc_unlocked_' + currentHotel, '1');
   admMsg(`PIN da unidade ${hotelInfo().name} atualizado com sucesso.`, 'ok');
   ['adm-unit-master','adm-unit-new','adm-unit-confirm'].forEach(id => document.getElementById(id).value = '');
 }
@@ -4323,7 +4343,7 @@ function entrarComPerfil(mp) {
   if (!unidades.length) return { erro: 'Este perfil não tem unidade liberada. Fale com a diretoria.' };
   localStorage.removeItem('mtnc_login_fails'); localStorage.removeItem('mtnc_login_lock');
   activeProfile = { nome: mp.nome || 'Perfil', unidades, modulos: mp.modulos || {} };
-  sessionStorage.setItem('mtnc_profile', JSON.stringify(activeProfile));
+  localStorage.setItem('mtnc_profile', JSON.stringify(activeProfile));
   if (unidades.length === 1) {
     const key = unidades[0];
     currentHotel = key; localStorage.setItem('currentHotel', key);
@@ -4422,7 +4442,7 @@ async function submitLoginCode() {
     // Senha master → todas as unidades (como hoje).
     if (hash === masterHash) {
       localStorage.removeItem('mtnc_login_fails'); localStorage.removeItem('mtnc_login_lock');
-      sessionStorage.setItem('mtnc_master', '1');
+      localStorage.setItem('mtnc_master', '1');
       hideLogin();
       buildLanding();
       document.getElementById('landing').classList.remove('hidden');
@@ -4437,7 +4457,7 @@ async function submitLoginCode() {
     for (const h of HOTELS) { if (pins[h.key] && pins[h.key] === hash) { foundKey = h.key; break; } }
     if (foundKey) {
       localStorage.removeItem('mtnc_login_fails'); localStorage.removeItem('mtnc_login_lock');
-      sessionStorage.setItem('mtnc_unlocked_' + foundKey, '1');
+      localStorage.setItem('mtnc_unlocked_' + foundKey, '1');
       currentHotel = foundKey;
       localStorage.setItem('currentHotel', foundKey);
       activeModule = 'dash';
@@ -4479,7 +4499,7 @@ function backToLanding() {
   // "Trocar unidade" sempre volta para o login. A lista com todas as unidades
   // só reaparece ao digitar a senha master. Limpa a sessão para exigir novo acesso.
   activeProfile = null;
-  Object.keys(sessionStorage).forEach(k => { if (k.indexOf('mtnc_') === 0) sessionStorage.removeItem(k); });
+  clearAccess();
   document.getElementById('landing').classList.add('hidden');
   showLogin();
 }
@@ -4495,10 +4515,30 @@ function toggleTheme() {
   applyTheme(next);
 }
 
+// Retoma a sessão salva (evita ter que logar de novo a cada F5 ou ao voltar no celular).
+function resumeSession() {
+  const master  = localStorage.getItem('mtnc_master') === '1';
+  const hasUnit = (() => { try { return Object.keys(localStorage).some(k => k.indexOf('mtnc_unlocked_') === 0); } catch (e) { return false; } })();
+  if (!master && !activeProfile && !hasUnit) return false;
+  let key = localStorage.getItem('mtnc_last_hotel') || localStorage.getItem('currentHotel');
+  if (activeProfile && key && !(activeProfile.unidades || []).includes(key)) key = (activeProfile.unidades || [])[0];
+  if (!key || !HOTELS.find(h => h.key === key)) {
+    // Diretoria sem última unidade definida: mostra a seleção de unidades já liberada.
+    if (master || activeProfile) { buildLanding(); document.getElementById('landing').classList.remove('hidden'); return true; }
+    return false;
+  }
+  hideLogin();
+  document.getElementById('landing').classList.add('hidden');
+  pickHotel(key);
+  return true;
+}
+
 (function init() {
   applyTheme(localStorage.getItem('theme') || 'dark');
   document.getElementById('setup-screen').classList.add('hidden');
+  try { const p = localStorage.getItem('mtnc_profile'); if (p) activeProfile = JSON.parse(p); } catch (e) { activeProfile = null; }
   buildLanding();
   document.getElementById('landing').classList.add('hidden');
+  if (resumeSession()) return;
   showLogin();
 })();
