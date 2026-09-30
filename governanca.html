@@ -135,10 +135,10 @@ function montarTipos(){
   if(preTipo&&TIPOS.some(t=>t.k===preTipo)){ sel.value=preTipo; onTipo(); }
   else montarBlocos('');
 }
-// Rouparia e Danificados só aparecem no Inventário
+// Rouparia e Danificados aparecem na Contagem e no Inventário (igual ao painel)
 function montarBlocos(tipo){
   const bsel=document.getElementById('f-bloco');
-  const especiais = tipo==='inventario' ? ESPECIAIS : [];
+  const especiais = tipo ? ESPECIAIS : [];
   bsel.innerHTML='<option value="">Selecione…</option>'+BLOCOS.map(b=>`<option value="${b.k}">${b.nome}</option>`).join('')+especiais.map(e=>`<option value="${e.k}">${e.nome}</option>`).join('');
 }
 function onTipo(){
