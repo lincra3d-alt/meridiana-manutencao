@@ -105,6 +105,7 @@ const GOV_JOGOS_MIN = 3;
 let GOV_ITENS = {};       // { contagem: [nomes], inventario: [nomes] }
 let GOV_DADOS = {};       // { contagem: { localKey: {itens:[{n,q}],total,ts,por,obs} }, inventario: {...} }
 let GOV_RECEBIDOS = [];   // fila do link aguardando confirmação: [{ id, tipo, localKey, itens, total, ts, por }]
+let GOV_MINIMOS = {};     // regra do mínimo por item: { 'T. ROSTO': {m:'x'|'+', v:Number} }; ausente = padrão ×3
 let govView = 'contagem'; // submenu ativo
 let govItemFiltro = 'all'; // filtro do gráfico "Enxoval por item": 'all' (todos os blocos) ou a key de um bloco
 function govRecebidosDe(tipo) { return GOV_RECEBIDOS.filter(r => r && r.tipo === tipo).sort((a, b) => (b.ts || 0) - (a.ts || 0)); }
@@ -151,6 +152,19 @@ function govRoupariaItens(tipo) {
   (rec && Array.isArray(rec.itens) ? rec.itens : []).forEach(it => { if (it && it.n) map[it.n] = (map[it.n] || 0) + (Number(it.q) || 0); });
   return map;
 }
+// Mínimo (dotação) de um item dada a quantidade nos quartos.
+// Regra por item: {m:'x'} → quartos × v ; {m:'+'} → quartos + v. Sem regra = padrão ×3.
+function govMinRegra(nome) {
+  const r = GOV_MINIMOS && GOV_MINIMOS[nome];
+  if (r && (r.m === 'x' || r.m === '+') && isFinite(Number(r.v))) return { m: r.m, v: Number(r.v) };
+  return { m: 'x', v: GOV_JOGOS_MIN };
+}
+function govMinItem(nome, quartos) {
+  const q = Number(quartos) || 0, r = govMinRegra(nome);
+  return r.m === '+' ? q + r.v : q * r.v;
+}
+function govMinLabel(nome) { const r = govMinRegra(nome); return r.m === '+' ? '+' + r.v : '×' + r.v; }
+function saveGovMinimos() { if (!db) return; db.ref(`${hotelPath()}/governancaMinimos`).set(Object.keys(GOV_MINIMOS).length ? GOV_MINIMOS : null); }
 // Total real de peças: quartos + rouparia, SEM contar os danificados.
 function govTotalReal(tipo) {
   const d = GOV_DADOS[tipo] || {};
@@ -281,6 +295,7 @@ function listenData() {
         const newGovItens = (val.governancaItens && typeof val.governancaItens === 'object' && !Array.isArray(val.governancaItens)) ? val.governancaItens : {};
         const newGovDados = (val.governanca && typeof val.governanca === 'object' && !Array.isArray(val.governanca)) ? val.governanca : {};
         const newGovRec = Array.isArray(val.governancaRecebidos) ? val.governancaRecebidos : [];
+        const newGovMin = (val.governancaMinimos && typeof val.governancaMinimos === 'object' && !Array.isArray(val.governancaMinimos)) ? val.governancaMinimos : {};
 
         const changed = JSON.stringify(newMonths) !== JSON.stringify(MONTHS)
                      || JSON.stringify(newData)   !== JSON.stringify(DATA)
@@ -290,13 +305,15 @@ function listenData() {
                      || JSON.stringify(newContagens)  !== JSON.stringify(CONTAGENS)
                      || JSON.stringify(newGovItens)   !== JSON.stringify(GOV_ITENS)
                      || JSON.stringify(newGovDados)   !== JSON.stringify(GOV_DADOS)
-                     || JSON.stringify(newGovRec)     !== JSON.stringify(GOV_RECEBIDOS);
+                     || JSON.stringify(newGovRec)     !== JSON.stringify(GOV_RECEBIDOS)
+                     || JSON.stringify(newGovMin)     !== JSON.stringify(GOV_MINIMOS);
         INVENTARIO = newInv;
         CONTAGEM_ITENS = newContItens;
         CONTAGENS = newContagens;
         GOV_ITENS = newGovItens;
         GOV_DADOS = newGovDados;
         GOV_RECEBIDOS = newGovRec;
+        GOV_MINIMOS = newGovMin;
         const lixPurged = newLix.length !== (Array.isArray(val.lixeira) ? val.lixeira : []).length;
         LIXEIRA = newLix;
         LOG = Array.isArray(val.log) ? val.log : [];
@@ -1351,6 +1368,7 @@ function buildViews() {
     <h2 class="modview-title">Parâmetros</h2>
     <div class="modview-actions">
       ${isFrota ? `<button class="btn btn-ghost" onclick="openRegras()">🔧 Regras de manutenção</button>` : ''}
+      ${hotelInfo().governanca ? `<button class="btn btn-ghost" onclick="openGovMin()">🧺 Mínimos do enxoval (Governança)</button>` : ''}
       ${hotelInfo().inventario ? `<button class="btn btn-ghost" onclick="openInvAdd()">📦 Adicionar item de inventário</button>` : ''}
       <button class="btn btn-ghost" onclick="downloadBackup()">💾 Baixar backup (JSON)</button>
       <button class="btn btn-ghost" onclick="openLixeira()">🗑 Lixeira</button>
@@ -2718,7 +2736,7 @@ function switchHotel(key) {
   clearTimeout(saveDebounce);
   currentHotel = key;
   localStorage.setItem('currentHotel', key);
-  MONTHS = []; DATA = []; INVENTARIO = []; LIXEIRA = []; LOG = []; SERVICOS = [...baseServicos()]; DESTINOS = [...VIAGEM_DESTINOS]; VEICULOS = [...CARROS_VEICULOS]; GERADORES = [...CARROS_GERADORES]; ASGSERV = [...ASG_SERVICOS]; REGRAS = []; CONTAGEM_ITENS = {}; CONTAGENS = []; GOV_ITENS = {}; GOV_DADOS = {}; GOV_RECEBIDOS = [];
+  MONTHS = []; DATA = []; INVENTARIO = []; LIXEIRA = []; LOG = []; SERVICOS = [...baseServicos()]; DESTINOS = [...VIAGEM_DESTINOS]; VEICULOS = [...CARROS_VEICULOS]; GERADORES = [...CARROS_GERADORES]; ASGSERV = [...ASG_SERVICOS]; REGRAS = []; CONTAGEM_ITENS = {}; CONTAGENS = []; GOV_ITENS = {}; GOV_DADOS = {}; GOV_RECEBIDOS = []; GOV_MINIMOS = {};
   activeMonth = 0;
   activeModule = 'dash';
   document.getElementById('tabs').innerHTML = '';
@@ -3089,21 +3107,63 @@ function govChartItens(tipo) {
   const max = Math.max(1, ...arr.map(x => x.q));
   let colhd, rows, nota;
   if (isAll) {
-    colhd = `<div class="gov-delta-row gov-item-colhd gov-row-all"><span class="gov-delta-n"></span><span class="gov-v-q">quartos</span><span class="gov-v-min">mín ×${GOV_JOGOS_MIN}</span><span class="gov-v-roup">rouparia</span><span class="gov-v-buy">comprar</span></div>`;
+    colhd = `<div class="gov-delta-row gov-item-colhd gov-row-all"><span class="gov-delta-n"></span><span class="gov-v-q">quartos</span><span class="gov-v-min">mínimo</span><span class="gov-v-roup">rouparia</span><span class="gov-v-buy">comprar</span></div>`;
     rows = arr.map(x => {
-      const min = x.q * GOV_JOGOS_MIN, r = roup[x.n] || 0, comprar = Math.max(0, min - r);
-      return `<div class="gov-delta-row gov-row-all"><span class="gov-delta-n">${esc(x.n)}</span><span class="gov-v-q">${x.q}</span><span class="gov-v-min">${min}</span><span class="gov-v-roup">${r}</span><span class="gov-v-buy${comprar > 0 ? ' falta' : ' ok'}">${comprar > 0 ? comprar : '✓'}</span></div>`;
+      const min = govMinItem(x.n, x.q), r = roup[x.n] || 0, comprar = Math.max(0, min - r);
+      return `<div class="gov-delta-row gov-row-all"><span class="gov-delta-n">${esc(x.n)}</span><span class="gov-v-q">${x.q}</span><span class="gov-v-min" title="regra: ${govMinLabel(x.n)}">${min}</span><span class="gov-v-roup">${r}</span><span class="gov-v-buy${comprar > 0 ? ' falta' : ' ok'}">${comprar > 0 ? comprar : '✓'}</span></div>`;
     }).join('');
-    nota = `<div class="gov-min-nota"><b>Comprar</b> = mínimo ×${GOV_JOGOS_MIN} menos o que já tem na rouparia. ✓ = já tem o suficiente.</div>`;
+    nota = `<div class="gov-min-nota"><b>Comprar</b> = mínimo menos o que já tem na rouparia. ✓ = já tem o suficiente. O mínimo de cada item se ajusta em Parâmetros.</div>`;
   } else {
-    colhd = `<div class="gov-delta-row gov-item-colhd"><span class="gov-delta-n"></span><span class="gov-delta-bar"></span><span class="gov-delta-v">nos quartos</span><span class="gov-min-v">mín. ×${GOV_JOGOS_MIN}</span></div>`;
+    colhd = `<div class="gov-delta-row gov-item-colhd"><span class="gov-delta-n"></span><span class="gov-delta-bar"></span><span class="gov-delta-v">nos quartos</span><span class="gov-min-v">mínimo</span></div>`;
     rows = arr.map(x => {
-      const min = x.q * GOV_JOGOS_MIN;
-      return `<div class="gov-delta-row"><span class="gov-delta-n">${esc(x.n)}</span><span class="gov-delta-bar"><span class="gov-delta-fill up" style="width:${x.q / max * 100}%"></span></span><span class="gov-delta-v">${x.q}</span><span class="gov-min-v" title="dotação mínima: 3 jogos">${min}</span></div>`;
+      const min = govMinItem(x.n, x.q);
+      return `<div class="gov-delta-row"><span class="gov-delta-n">${esc(x.n)}</span><span class="gov-delta-bar"><span class="gov-delta-fill up" style="width:${x.q / max * 100}%"></span></span><span class="gov-delta-v">${x.q}</span><span class="gov-min-v" title="regra: ${govMinLabel(x.n)}">${min}</span></div>`;
     }).join('');
-    nota = `<div class="gov-min-nota">Mín. ×${GOV_JOGOS_MIN} = dotação mínima (1 no quarto · 1 na rouparia · 1 na lavanderia)</div>`;
+    nota = `<div class="gov-min-nota">Mínimo = dotação de cada item (ajustável em Parâmetros). Padrão ×${GOV_JOGOS_MIN} jogos.</div>`;
   }
   return `<div class="gov-card">${head}${colhd}${rows}${nota}</div>`;
+}
+
+// ── Mínimos do enxoval (Parâmetros): regra por item (×N ou +N) ──
+let govMinEdit = null, govMinKeys = [];
+function openGovMin() {
+  govMinKeys = [...new Set([...govItensDe('contagem'), ...govItensDe('inventario')])];
+  govMinEdit = {};
+  govMinKeys.forEach(n => { const r = govMinRegra(n); govMinEdit[n] = { m: r.m, v: r.v }; });
+  renderGovMin();
+  document.getElementById('ov-govmin').classList.add('show');
+}
+function closeGovMin() { document.getElementById('ov-govmin').classList.remove('show'); govMinEdit = null; }
+function renderGovMin() {
+  const rows = govMinKeys.map((n, i) => {
+    const r = govMinEdit[n];
+    return `<div class="govmin-row"><span class="govmin-n">${esc(n)}</span>
+      <select class="govmin-modo" onchange="govMinField(${i},'m',this.value)">
+        <option value="x"${r.m === 'x' ? ' selected' : ''}>× multiplica</option>
+        <option value="+"${r.m === '+' ? ' selected' : ''}>+ soma fixa</option>
+      </select>
+      <input class="govmin-v" type="number" min="0" step="1" value="${r.v}" oninput="govMinField(${i},'v',this.value)"></div>`;
+  }).join('');
+  document.getElementById('govmin-list').innerHTML = rows;
+}
+function govMinField(i, campo, val) {
+  const n = govMinKeys[i]; if (!n || !govMinEdit[n]) return;
+  if (campo === 'm') govMinEdit[n].m = (val === '+' ? '+' : 'x');
+  else govMinEdit[n].v = Math.max(0, parseInt(val, 10) || 0);
+}
+function govMinAplicarTodos() {
+  const m = document.getElementById('govmin-all-modo').value === '+' ? '+' : 'x';
+  const v = Math.max(0, parseInt(document.getElementById('govmin-all-v').value, 10) || 0);
+  govMinKeys.forEach(n => { govMinEdit[n] = { m, v }; });
+  renderGovMin();
+}
+function salvarGovMin() {
+  const novo = {};
+  govMinKeys.forEach(n => { const r = govMinEdit[n]; if (!(r.m === 'x' && r.v === GOV_JOGOS_MIN)) novo[n] = { m: r.m, v: r.v }; });
+  GOV_MINIMOS = novo;
+  saveGovMinimos();
+  closeGovMin();
+  if (activeModule === 'gov') renderGovMain();
 }
 
 // ── Modal de um local (bloco+quarto, rouparia ou danificados) ──

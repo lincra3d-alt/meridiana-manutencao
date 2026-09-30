@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Gestão de Manutenção · Hotel</title>
 <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@400;600;700&family=Jost:wght@300;400;500;600&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="style.css?v=29">
+<link rel="stylesheet" href="style.css?v=30">
 <style>
 .pdf-chk{display:inline-flex;align-items:center;gap:6px;padding:6px 11px;background:var(--s4);border:1px solid var(--border);border-radius:14px;font-size:11.5px;cursor:pointer;user-select:none;transition:all .15s}
 .pdf-chk:hover{background:var(--s3);border-color:var(--border2)}
@@ -758,6 +758,28 @@
   </div>
 </div>
 
+<div class="ov" id="ov-govmin" onclick="if(event.target===this)closeGovMin()">
+  <div class="modal" style="width:560px;max-width:96vw;max-height:88vh;padding:0;display:flex;flex-direction:column;overflow:hidden">
+    <button class="cont-close" onclick="closeGovMin()" title="Fechar" aria-label="Fechar">✕</button>
+    <div style="padding:22px 22px 0">
+      <h3 class="cont-h4" style="margin-top:0">🧺 Mínimos do enxoval</h3>
+      <p class="cont-hint">Dotação mínima de cada item. <b>× multiplica</b> os quartos (ex.: toalha ×3, roda na lavanderia). <b>+ soma fixa</b> aos quartos (ex.: travesseiro +20, só uma reserva). Padrão: ×3.</p>
+      <div class="govmin-apply">
+        <span>Aplicar a todos:</span>
+        <select id="govmin-all-modo" class="govmin-modo"><option value="x">× multiplica</option><option value="+">+ soma fixa</option></select>
+        <input id="govmin-all-v" class="govmin-v" type="number" min="0" step="1" value="3">
+        <button class="btn btn-ghost btn-xs" onclick="govMinAplicarTodos()">Aplicar</button>
+      </div>
+      <div class="govmin-headrow"><span>Item</span><span>Regra</span><span>Valor</span></div>
+    </div>
+    <div id="govmin-list" style="overflow:auto;padding:0 22px"></div>
+    <div style="padding:16px 22px;border-top:1px solid var(--border);display:flex;gap:10px;justify-content:flex-end">
+      <button class="btn btn-ghost" onclick="closeGovMin()">Cancelar</button>
+      <button class="btn btn-gold" onclick="salvarGovMin()">Salvar</button>
+    </div>
+  </div>
+</div>
+
 
 <div id="report-print"></div>
 
@@ -765,6 +787,6 @@
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
-<script src="app.js?v=98"></script>
+<script src="app.js?v=99"></script>
 </body>
 </html>
