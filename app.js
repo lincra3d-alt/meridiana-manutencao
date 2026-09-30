@@ -100,10 +100,13 @@ const GOV_ESPECIAIS = [
   { k: 'governanca',  nome: 'Governança (rouparia)', ic: '🧺' },
   { k: 'danificados', nome: 'Danificados',           ic: '⚠' },
 ];
+// Regra de governança: dotação mínima = 3 jogos de enxoval (1 no quarto, 1 na rouparia, 1 na lavanderia).
+const GOV_JOGOS_MIN = 3;
 let GOV_ITENS = {};       // { contagem: [nomes], inventario: [nomes] }
 let GOV_DADOS = {};       // { contagem: { localKey: {itens:[{n,q}],total,ts,por,obs} }, inventario: {...} }
 let GOV_RECEBIDOS = [];   // fila do link aguardando confirmação: [{ id, tipo, localKey, itens, total, ts, por }]
 let govView = 'contagem'; // submenu ativo
+let govItemFiltro = 'all'; // filtro do gráfico "Enxoval por item": 'all' (todos os blocos) ou a key de um bloco
 function govRecebidosDe(tipo) { return GOV_RECEBIDOS.filter(r => r && r.tipo === tipo).sort((a, b) => (b.ts || 0) - (a.ts || 0)); }
 function govItensDe(tipo) {
   const custom = GOV_ITENS && GOV_ITENS[tipo];
@@ -132,6 +135,16 @@ function govLocalLabel(localKey) {
 function govTotalGeral(tipo) { const d = GOV_DADOS[tipo] || {}; return Object.keys(d).reduce((s, k) => s + govLocalTotal(d[k]), 0); }
 function govBlocoTotal(tipo, bk) { const d = GOV_DADOS[tipo] || {}; return Object.keys(d).filter(k => k.startsWith(bk + '__')).reduce((s, k) => s + govLocalTotal(d[k]), 0); }
 function govAggItens(tipo) { const d = GOV_DADOS[tipo] || {}; const map = {}; Object.keys(d).forEach(k => (d[k].itens || []).forEach(it => { if (it && it.n) map[it.n] = (map[it.n] || 0) + (Number(it.q) || 0); })); return map; }
+// Agrega itens contados por filtro: 'all' = soma só dos quartos dos blocos; ou a key de um bloco (ex.: 'b1').
+function govAggItensFiltro(tipo, filtro) {
+  const d = GOV_DADOS[tipo] || {}; const map = {};
+  Object.keys(d).forEach(k => {
+    const ok = (filtro === 'all' || !filtro) ? GOV_BLOCOS.some(b => k.startsWith(b.k + '__')) : k.startsWith(filtro + '__');
+    if (!ok) return;
+    (d[k].itens || []).forEach(it => { if (it && it.n) map[it.n] = (map[it.n] || 0) + (Number(it.q) || 0); });
+  });
+  return map;
+}
 function govContados(tipo) { const d = GOV_DADOS[tipo] || {}; return govLocais(tipo).filter(k => d[k]).length; }
 
 // ─── HOTELS ───────────────────────────────────────────────────────────────────
@@ -3022,7 +3035,7 @@ function renderGovLocais(tipo) {
       return `<button class="gov-quarto${cont ? ' feito' : ''}" onclick="openGovLocal('${tipo}','${lk}',false)"><span class="gov-q-n">${q}</span></button>`;
     }).join('');
     const feitos = b.quartos.filter(q => d[b.k + '__' + q]).length;
-    return `<div class="gov-bloco"><div class="gov-bloco-h"><b>${b.nome}</b><span>${feitos}/${b.quartos.length} quartos · ${govBlocoTotal(tipo, b.k)} peças</span></div><div class="gov-quartos">${chips}</div></div>`;
+    return `<div class="gov-bloco"><div class="gov-bloco-h"><b>${b.nome}</b><span>${feitos}/${b.quartos.length} quartos</span></div><div class="gov-quartos">${chips}</div></div>`;
   }).join('');
   const esp = govEspeciaisDe(tipo).map(e => {
     const lk = e.k + '__geral', rec = d[lk];
@@ -3049,14 +3062,25 @@ function govChartBlocos(tipo) {
       <line x1="10" y1="${H - 30}" x2="${W - 6}" y2="${H - 30}" stroke="var(--border2)" stroke-width="1"/>
       ${bars}</svg></div></div>`;
 }
-// Gráfico: quantidade por item somando todos os locais
+// Gráfico: quantidade por item (nos quartos) com filtro por bloco e dotação mínima (x3 jogos)
+function setGovItemFiltro(bk) { govItemFiltro = bk || 'all'; renderGovMain(); }
 function govChartItens(tipo) {
-  const agg = govAggItens(tipo);
-  const arr = Object.keys(agg).map(n => ({ n, q: agg[n] })).filter(x => x.q > 0).sort((a, b) => b.q - a.q).slice(0, 14);
-  if (!arr.length) return `<div class="gov-card"><div class="gov-card-t">Quantidades por item</div><p class="cont-hint">Nenhum local contado ainda.</p></div>`;
+  const f = govItemFiltro || 'all';
+  const opts = `<option value="all"${f === 'all' ? ' selected' : ''}>Todos os blocos</option>` +
+    GOV_BLOCOS.map(b => `<option value="${b.k}"${f === b.k ? ' selected' : ''}>${b.nome}</option>`).join('');
+  const sel = `<select class="gov-item-sel" onchange="setGovItemFiltro(this.value)">${opts}</select>`;
+  const head = `<div class="gov-card-t gov-item-hd"><span>Enxoval por item</span>${sel}</div>`;
+  const agg = govAggItensFiltro(tipo, f);
+  const arr = Object.keys(agg).map(n => ({ n, q: agg[n] })).filter(x => x.q > 0).sort((a, b) => b.q - a.q);
+  if (!arr.length) return `<div class="gov-card">${head}<p class="cont-hint">Nenhum quarto contado ${f === 'all' ? 'ainda' : 'neste bloco'}.</p></div>`;
   const max = Math.max(1, ...arr.map(x => x.q));
-  const rows = arr.map(x => `<div class="gov-delta-row"><span class="gov-delta-n">${esc(x.n)}</span><span class="gov-delta-bar"><span class="gov-delta-fill up" style="width:${x.q / max * 100}%"></span></span><span class="gov-delta-v">${x.q}</span></div>`).join('');
-  return `<div class="gov-card"><div class="gov-card-t">Quantidades por item <span class="gov-card-note">todos os locais</span></div>${rows}</div>`;
+  const rows = arr.map(x => {
+    const min = x.q * GOV_JOGOS_MIN;
+    return `<div class="gov-delta-row"><span class="gov-delta-n">${esc(x.n)}</span><span class="gov-delta-bar"><span class="gov-delta-fill up" style="width:${x.q / max * 100}%"></span></span><span class="gov-delta-v">${x.q}</span><span class="gov-min-v" title="dotação mínima: 3 jogos">${min}</span></div>`;
+  }).join('');
+  const colhd = `<div class="gov-delta-row gov-item-colhd"><span class="gov-delta-n"></span><span class="gov-delta-bar"></span><span class="gov-delta-v">nos quartos</span><span class="gov-min-v">mín. ×${GOV_JOGOS_MIN}</span></div>`;
+  const nota = `<div class="gov-min-nota">Mín. ×${GOV_JOGOS_MIN} = dotação mínima (1 no quarto · 1 na rouparia · 1 na lavanderia)</div>`;
+  return `<div class="gov-card">${head}${colhd}${rows}${nota}</div>`;
 }
 
 // ── Modal de um local (bloco+quarto, rouparia ou danificados) ──
