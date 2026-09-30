@@ -3110,10 +3110,10 @@ function govChartItens(tipo) {
   if (isAll) {
     colhd = `<div class="gov-delta-row gov-item-colhd gov-row-all"><span class="gov-delta-n"></span><span class="gov-v-q">quartos</span><span class="gov-v-min">mínimo</span><span class="gov-v-roup">rouparia</span><span class="gov-v-buy">comprar</span></div>`;
     rows = arr.map(x => {
-      const min = govMinItem(x.n, x.q), r = roup[x.n] || 0, comprar = Math.max(0, min - r);
+      const min = govMinItem(x.n, x.q), r = roup[x.n] || 0, comprar = Math.max(0, min - x.q - r);
       return `<div class="gov-delta-row gov-row-all"><span class="gov-delta-n">${esc(x.n)}</span><span class="gov-v-q">${x.q}</span><span class="gov-v-min" title="regra: ${govMinLabel(x.n)}">${min}</span><span class="gov-v-roup">${r}</span><span class="gov-v-buy${comprar > 0 ? ' falta' : ' ok'}">${comprar > 0 ? comprar : '✓'}</span></div>`;
     }).join('');
-    nota = `<div class="gov-min-nota"><b>Comprar</b> = mínimo menos o que já tem na rouparia. ✓ = já tem o suficiente. O mínimo de cada item se ajusta em Parâmetros.</div>`;
+    nota = `<div class="gov-min-nota"><b>Comprar</b> = mínimo menos o que já tem (quartos + rouparia). ✓ = já tem o suficiente. O mínimo de cada item se ajusta em Parâmetros.</div>`;
   } else {
     colhd = `<div class="gov-delta-row gov-item-colhd"><span class="gov-delta-n"></span><span class="gov-delta-bar"></span><span class="gov-delta-v">nos quartos</span><span class="gov-min-v">mínimo</span></div>`;
     rows = arr.map(x => {
