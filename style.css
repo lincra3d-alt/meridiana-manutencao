@@ -199,6 +199,18 @@ header{background:var(--s1);border-bottom:1px solid var(--border);padding:13px 2
 .govmin-modo:focus{border-color:var(--gold)}
 .govmin-v{width:100%;text-align:center;background:var(--s4);border:1px solid var(--border2);border-radius:7px;padding:6px 8px;color:var(--text);font-family:inherit;font-size:13px;font-weight:700;outline:none}
 .govmin-v:focus{border-color:var(--gold)}
+/* Modal itens da governança */
+.govit-tabs{display:flex;gap:8px;margin:6px 0 12px}
+.govit-tab{flex:1;background:var(--s4);border:1px solid var(--border2);border-radius:8px;padding:8px 10px;color:var(--muted2);font-family:inherit;font-size:12px;cursor:pointer;transition:background .12s,color .12s}
+.govit-tab.active{background:rgba(196,154,60,.14);border-color:rgba(196,154,60,.5);color:var(--gold2);font-weight:600}
+.govit-add{display:flex;gap:8px;align-items:center;margin-bottom:12px}
+.govit-add input{flex:1;background:var(--s4);border:1px solid var(--border2);border-radius:8px;padding:9px 11px;color:var(--text);font-family:inherit;font-size:13px;outline:none}
+.govit-add input:focus{border-color:var(--gold)}
+.govit-head{display:flex;justify-content:space-between;align-items:baseline;font-size:9.5px;letter-spacing:.3px;text-transform:uppercase;color:var(--muted);font-weight:600;padding:0 2px 6px;border-bottom:1px solid var(--border)}
+.govit-row{display:flex;justify-content:space-between;align-items:center;gap:10px;padding:8px 2px;border-bottom:1px solid var(--border)}
+.govit-n{font-size:13px;color:var(--text)}
+.govit-del{background:none;border:none;color:var(--muted);font-size:14px;cursor:pointer;padding:2px 6px;border-radius:6px;transition:background .12s,color .12s}
+.govit-del:hover{background:rgba(229,72,77,.15);color:var(--red2,#ff7a7e)}
 .gov-sub small{color:var(--muted);font-size:10px}
 /* modo "Todos os blocos": tabela quartos / mín / rouparia / comprar (sem barra) */
 .gov-row-all{display:flex;align-items:center;gap:5px;padding:4px 0;font-size:12px}

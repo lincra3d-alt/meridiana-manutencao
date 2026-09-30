@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Gestão de Manutenção · Hotel</title>
 <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@400;600;700&family=Jost:wght@300;400;500;600&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="style.css?v=31">
+<link rel="stylesheet" href="style.css?v=32">
 <style>
 .pdf-chk{display:inline-flex;align-items:center;gap:6px;padding:6px 11px;background:var(--s4);border:1px solid var(--border);border-radius:14px;font-size:11.5px;cursor:pointer;user-select:none;transition:all .15s}
 .pdf-chk:hover{background:var(--s3);border-color:var(--border2)}
@@ -780,6 +780,30 @@
   </div>
 </div>
 
+<div class="ov" id="ov-govitens" onclick="if(event.target===this)closeGovItens()">
+  <div class="modal" style="width:520px;max-width:96vw;max-height:88vh;padding:0;display:flex;flex-direction:column;overflow:hidden">
+    <button class="cont-close" onclick="closeGovItens()" title="Fechar" aria-label="Fechar">✕</button>
+    <div style="padding:22px 22px 0">
+      <h3 class="cont-h4" style="margin-top:0">🧺 Itens da Governança</h3>
+      <p class="cont-hint">Itens do enxoval usados na contagem, no inventário e no link. A <b>Contagem (mensal)</b> e o <b>Inventário (semestral)</b> têm listas separadas.</p>
+      <div id="govitens-tabs" class="govit-tabs">
+        <button class="govit-tab active" data-t="contagem" onclick="setGovItensTipo('contagem')">Contagem (mensal)</button>
+        <button class="govit-tab" data-t="inventario" onclick="setGovItensTipo('inventario')">Inventário (semestral)</button>
+      </div>
+      <div class="govit-add">
+        <input id="govitens-new" placeholder="Novo item (ex.: TOALHA DE MESA)" onkeydown="if(event.key==='Enter')addGovItem()">
+        <button class="btn btn-ghost btn-xs" onclick="addGovItem()">+ Adicionar</button>
+      </div>
+      <div class="govit-head"><span>Itens</span><span id="govitens-count"></span></div>
+    </div>
+    <div id="govitens-list" style="overflow:auto;padding:0 22px"></div>
+    <div style="padding:16px 22px;border-top:1px solid var(--border);display:flex;gap:10px;justify-content:flex-end">
+      <button class="btn btn-ghost" onclick="closeGovItens()">Cancelar</button>
+      <button class="btn btn-gold" onclick="salvarGovItens()">Salvar</button>
+    </div>
+  </div>
+</div>
+
 
 <div id="report-print"></div>
 
@@ -787,6 +811,6 @@
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
-<script src="app.js?v=103"></script>
+<script src="app.js?v=104"></script>
 </body>
 </html>

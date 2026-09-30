@@ -1378,6 +1378,7 @@ function buildViews() {
       <p class="modview-note">Gerencie as listas usadas nos serviços desta unidade. Os itens padrão não podem ser removidos.</p>
       <div class="rep-bars">
         ${cats.map(c => `<button class="rep-bar" onclick="openCad('${c.k}')"><div class="rep-bar-t">${c.l}</div><div class="rep-bar-d">Adicionar ou remover itens.</div></button>`).join('')}
+        ${hotelInfo().governanca ? `<button class="rep-bar" onclick="openGovItens()"><div class="rep-bar-t">🧺 Itens Governança</div><div class="rep-bar-d">Cadastrar ou remover itens do enxoval (contagem e inventário).</div></button>` : ''}
       </div>`;
   }
   const par = document.getElementById('param-inner');
@@ -3189,6 +3190,52 @@ function salvarGovMin() {
   GOV_MINIMOS = novo;
   saveGovMinimos();
   closeGovMin();
+  if (activeModule === 'gov') renderGovMain();
+}
+
+// ── Itens da Governança (Cadastros): catálogo do enxoval por tipo ──
+let govItensEdit = null, govItensTipoView = 'contagem';
+function openGovItens() {
+  govItensTipoView = 'contagem';
+  govItensEdit = { contagem: [...govItensDe('contagem')], inventario: [...govItensDe('inventario')] };
+  renderGovItens();
+  document.getElementById('ov-govitens').classList.add('show');
+  setTimeout(() => { const e = document.getElementById('govitens-new'); if (e) e.focus(); }, 80);
+}
+function closeGovItens() { document.getElementById('ov-govitens').classList.remove('show'); govItensEdit = null; }
+function setGovItensTipo(t) { govItensTipoView = (t === 'inventario' ? 'inventario' : 'contagem'); renderGovItens(); }
+function renderGovItens() {
+  const t = govItensTipoView;
+  document.querySelectorAll('#govitens-tabs .govit-tab').forEach(b => b.classList.toggle('active', b.dataset.t === t));
+  const arr = govItensEdit[t] || [];
+  document.getElementById('govitens-list').innerHTML = arr.length
+    ? arr.map((n, i) => `<div class="govit-row"><span class="govit-n">${esc(n)}</span><button class="govit-del" onclick="removeGovItem(${i})" title="Remover">✕</button></div>`).join('')
+    : `<p class="cont-hint" style="padding:10px 0">Sem itens. Adicione acima. Se salvar vazio, volta para a lista padrão.</p>`;
+  document.getElementById('govitens-count').textContent = arr.length + ' ' + (arr.length === 1 ? 'item' : 'itens');
+}
+function addGovItem() {
+  const inp = document.getElementById('govitens-new');
+  const v = (inp.value || '').trim().toUpperCase();
+  if (!v) return;
+  const t = govItensTipoView;
+  if (!govItensEdit[t].some(x => String(x).toUpperCase() === v)) govItensEdit[t].push(v);
+  inp.value = ''; inp.focus();
+  renderGovItens();
+}
+function removeGovItem(i) {
+  const t = govItensTipoView;
+  govItensEdit[t].splice(i, 1);
+  renderGovItens();
+}
+function salvarGovItens() {
+  const novo = {};
+  ['contagem', 'inventario'].forEach(t => {
+    const a = (govItensEdit[t] || []).map(s => String(s).trim()).filter(Boolean);
+    if (a.length) novo[t] = a;
+  });
+  GOV_ITENS = novo;
+  if (db) db.ref(`${hotelPath()}/governancaItens`).set(Object.keys(novo).length ? novo : null);
+  closeGovItens();
   if (activeModule === 'gov') renderGovMain();
 }
 
