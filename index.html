@@ -780,6 +780,17 @@
   </div>
 </div>
 
+<div class="ov" id="ov-govhist" onclick="if(event.target===this)closeGovHist()">
+  <div class="modal" style="width:640px;max-width:96vw;max-height:88vh;padding:0;display:flex;flex-direction:column;overflow:hidden">
+    <button class="cont-close" onclick="closeGovHist()" title="Fechar" aria-label="Fechar">✕</button>
+    <div style="padding:22px 22px 10px">
+      <h3 class="cont-h4" style="margin-top:0">📋 Histórico da Governança</h3>
+      <p class="cont-hint">Aceites do link, substituições (antigo → novo) e edições manuais das contagens. <span id="govhist-count"></span></p>
+    </div>
+    <div id="govhist-list" style="overflow:auto;padding:0 22px 22px"></div>
+  </div>
+</div>
+
 <div class="ov" id="ov-govitens" onclick="if(event.target===this)closeGovItens()">
   <div class="modal" style="width:520px;max-width:96vw;max-height:88vh;padding:0;display:flex;flex-direction:column;overflow:hidden">
     <button class="cont-close" onclick="closeGovItens()" title="Fechar" aria-label="Fechar">✕</button>
@@ -811,6 +822,6 @@
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
-<script src="app.js?v=105"></script>
+<script src="app.js?v=106"></script>
 </body>
 </html>

@@ -3058,6 +3058,7 @@ function renderGovMain() {
     <div><h2 class="modview-title" style="margin:0">${t.ic} ${t.l} <span class="gov-cad">${t.cad}</span></h2>
     <p class="gov-sub">${contados} de ${totalLocais} locais contados</p></div>
     <div class="gov-head-btns">
+      <button class="btn btn-ghost btn-xs" onclick="openGovHist()">📋 Histórico</button>
       <button class="btn btn-ghost btn-xs" onclick="imprimirGov('${tipo}')">🖨 Imprimir</button>
     </div></div>`;
   const charts = `<div class="gov-charts">${govRecebidosCard(tipo)}${govChartItens(tipo)}</div>`;
@@ -3191,6 +3192,21 @@ function salvarGovMin() {
   saveGovMinimos();
   closeGovMin();
   if (activeModule === 'gov') renderGovMain();
+}
+
+// ── Histórico da Governança (só os registros de contagem/governança) ──
+function govHistEntries() {
+  return (LOG || []).filter(l => l && /governan|contagem/i.test(l.acao || ''));
+}
+function openGovHist() { renderGovHist(); document.getElementById('ov-govhist').classList.add('show'); }
+function closeGovHist() { document.getElementById('ov-govhist').classList.remove('show'); }
+function renderGovHist() {
+  const el = document.getElementById('govhist-list'); if (!el) return;
+  const arr = govHistEntries();
+  el.innerHTML = arr.length
+    ? arr.map(l => `<div class="log-item"><div class="log-when">${fmtDT(l.ts)}</div><div class="log-main"><span class="log-acao">${esc(l.acao)}</span> ${esc(l.alvo)}</div><div class="log-origem">${esc(l.origem)}</div></div>`).join('')
+    : '<div class="modview-note" style="padding:24px;text-align:center">Sem registros da Governança ainda. Aceites, substituições e edições passam a aparecer aqui.</div>';
+  const c = document.getElementById('govhist-count'); if (c) c.textContent = arr.length + ' ' + (arr.length === 1 ? 'registro' : 'registros');
 }
 
 // ── Itens da Governança (Cadastros): catálogo do enxoval por tipo ──
