@@ -3234,10 +3234,17 @@ function renderGovItens() {
   document.getElementById('govitens-list').innerHTML = arr.length
     ? arr.map((n, i) => i === govItemEditing
         ? `<div class="govit-row"><input class="govit-edit-inp" id="govit-edit-inp" value="${esc(n)}" onkeydown="if(event.key==='Enter')saveGovItemName(${i});if(event.key==='Escape')cancelGovItemEdit()"><div class="govit-acts"><button class="govit-ok" onclick="saveGovItemName(${i})" title="Salvar">✓</button><button class="govit-del" onclick="cancelGovItemEdit()" title="Cancelar">✕</button></div></div>`
-        : `<div class="govit-row"><span class="govit-n">${esc(n)}</span><div class="govit-acts"><button class="govit-edit" onclick="editGovItem(${i})" title="Editar nome">✎</button><button class="govit-del" onclick="removeGovItem(${i})" title="Remover">✕</button></div></div>`
+        : `<div class="govit-row"><span class="govit-n">${esc(n)}</span><div class="govit-acts"><button class="govit-mv" ${i === 0 ? 'disabled' : ''} onclick="moveGovItem(${i},-1)" title="Subir">▲</button><button class="govit-mv" ${i === arr.length - 1 ? 'disabled' : ''} onclick="moveGovItem(${i},1)" title="Descer">▼</button><button class="govit-edit" onclick="editGovItem(${i})" title="Editar nome">✎</button><button class="govit-del" onclick="removeGovItem(${i})" title="Remover">✕</button></div></div>`
       ).join('')
     : `<p class="cont-hint" style="padding:10px 0">Sem itens. Adicione acima. Se salvar vazio, volta para a lista padrão.</p>`;
   document.getElementById('govitens-count').textContent = arr.length + ' ' + (arr.length === 1 ? 'item' : 'itens');
+}
+function moveGovItem(i, dir) {
+  const t = govItensTipoView, arr = govItensEdit[t], j = i + dir;
+  if (j < 0 || j >= arr.length) return;
+  const tmp = arr[i]; arr[i] = arr[j]; arr[j] = tmp;
+  govItemEditing = -1;
+  renderGovItens();
 }
 function editGovItem(i) { govItemEditing = i; renderGovItens(); setTimeout(() => { const e = document.getElementById('govit-edit-inp'); if (e) { e.focus(); e.select(); } }, 40); }
 function cancelGovItemEdit() { govItemEditing = -1; renderGovItens(); }

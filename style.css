@@ -210,7 +210,10 @@ header{background:var(--s1);border-bottom:1px solid var(--border);padding:13px 2
 .govit-row{display:flex;justify-content:space-between;align-items:center;gap:10px;padding:8px 2px;border-bottom:1px solid var(--border)}
 .govit-n{font-size:13px;color:var(--text)}
 .govit-acts{display:flex;gap:4px;align-items:center}
-.govit-del,.govit-edit,.govit-ok{background:none;border:none;color:var(--muted);font-size:14px;cursor:pointer;padding:3px 7px;border-radius:6px;transition:background .12s,color .12s}
+.govit-del,.govit-edit,.govit-ok,.govit-mv{background:none;border:none;color:var(--muted);font-size:14px;cursor:pointer;padding:3px 7px;border-radius:6px;transition:background .12s,color .12s}
+.govit-mv{font-size:11px}
+.govit-mv:hover:not(:disabled){background:rgba(196,154,60,.15);color:var(--gold2)}
+.govit-mv:disabled{opacity:.25;cursor:default}
 .govit-del:hover{background:rgba(229,72,77,.15);color:var(--red2,#ff7a7e)}
 .govit-edit:hover{background:rgba(196,154,60,.15);color:var(--gold2)}
 .govit-ok{color:var(--gold2)}
