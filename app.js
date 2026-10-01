@@ -3234,10 +3234,26 @@ function renderGovItens() {
   document.getElementById('govitens-list').innerHTML = arr.length
     ? arr.map((n, i) => i === govItemEditing
         ? `<div class="govit-row"><input class="govit-edit-inp" id="govit-edit-inp" value="${esc(n)}" onkeydown="if(event.key==='Enter')saveGovItemName(${i});if(event.key==='Escape')cancelGovItemEdit()"><div class="govit-acts"><button class="govit-ok" onclick="saveGovItemName(${i})" title="Salvar">✓</button><button class="govit-del" onclick="cancelGovItemEdit()" title="Cancelar">✕</button></div></div>`
-        : `<div class="govit-row"><span class="govit-n">${esc(n)}</span><div class="govit-acts"><button class="govit-mv" ${i === 0 ? 'disabled' : ''} onclick="moveGovItem(${i},-1)" title="Subir">▲</button><button class="govit-mv" ${i === arr.length - 1 ? 'disabled' : ''} onclick="moveGovItem(${i},1)" title="Descer">▼</button><button class="govit-edit" onclick="editGovItem(${i})" title="Editar nome">✎</button><button class="govit-del" onclick="removeGovItem(${i})" title="Remover">✕</button></div></div>`
+        : `<div class="govit-row"><span class="govit-grip" title="Arraste para mover">⠿</span><span class="govit-n">${esc(n)}</span><div class="govit-acts"><button class="govit-mv" ${i === 0 ? 'disabled' : ''} onclick="moveGovItem(${i},-1)" title="Subir">▲</button><button class="govit-mv" ${i === arr.length - 1 ? 'disabled' : ''} onclick="moveGovItem(${i},1)" title="Descer">▼</button><button class="govit-edit" onclick="editGovItem(${i})" title="Editar nome">✎</button><button class="govit-del" onclick="removeGovItem(${i})" title="Remover">✕</button></div></div>`
       ).join('')
     : `<p class="cont-hint" style="padding:10px 0">Sem itens. Adicione acima. Se salvar vazio, volta para a lista padrão.</p>`;
   document.getElementById('govitens-count').textContent = arr.length + ' ' + (arr.length === 1 ? 'item' : 'itens');
+  govInitSortable();
+}
+let govSortable = null;
+function govInitSortable() {
+  const list = document.getElementById('govitens-list');
+  if (!list || !window.Sortable) return;
+  if (govSortable) { try { govSortable.destroy(); } catch (e) {} govSortable = null; }
+  govSortable = window.Sortable.create(list, {
+    handle: '.govit-grip', animation: 150, ghostClass: 'govit-ghost', chosenClass: 'govit-chosen',
+    onEnd: evt => {
+      const t = govItensTipoView, arr = govItensEdit[t], from = evt.oldIndex, to = evt.newIndex;
+      if (from == null || to == null || from === to) return;
+      const item = arr.splice(from, 1)[0]; arr.splice(to, 0, item);
+      govItemEditing = -1; renderGovItens();
+    }
+  });
 }
 function moveGovItem(i, dir) {
   const t = govItensTipoView, arr = govItensEdit[t], j = i + dir;
