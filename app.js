@@ -3216,24 +3216,40 @@ function renderGovHist() {
 }
 
 // ── Itens da Governança (Cadastros): catálogo do enxoval por tipo ──
-let govItensEdit = null, govItensTipoView = 'contagem';
+let govItensEdit = null, govItensTipoView = 'contagem', govItemEditing = -1;
 function openGovItens() {
   govItensTipoView = 'contagem';
+  govItemEditing = -1;
   govItensEdit = { contagem: [...govItensDe('contagem')], inventario: [...govItensDe('inventario')] };
   renderGovItens();
   document.getElementById('ov-govitens').classList.add('show');
   setTimeout(() => { const e = document.getElementById('govitens-new'); if (e) e.focus(); }, 80);
 }
 function closeGovItens() { document.getElementById('ov-govitens').classList.remove('show'); govItensEdit = null; }
-function setGovItensTipo(t) { govItensTipoView = (t === 'inventario' ? 'inventario' : 'contagem'); renderGovItens(); }
+function setGovItensTipo(t) { govItensTipoView = (t === 'inventario' ? 'inventario' : 'contagem'); govItemEditing = -1; renderGovItens(); }
 function renderGovItens() {
   const t = govItensTipoView;
   document.querySelectorAll('#govitens-tabs .govit-tab').forEach(b => b.classList.toggle('active', b.dataset.t === t));
   const arr = govItensEdit[t] || [];
   document.getElementById('govitens-list').innerHTML = arr.length
-    ? arr.map((n, i) => `<div class="govit-row"><span class="govit-n">${esc(n)}</span><button class="govit-del" onclick="removeGovItem(${i})" title="Remover">✕</button></div>`).join('')
+    ? arr.map((n, i) => i === govItemEditing
+        ? `<div class="govit-row"><input class="govit-edit-inp" id="govit-edit-inp" value="${esc(n)}" onkeydown="if(event.key==='Enter')saveGovItemName(${i});if(event.key==='Escape')cancelGovItemEdit()"><div class="govit-acts"><button class="govit-ok" onclick="saveGovItemName(${i})" title="Salvar">✓</button><button class="govit-del" onclick="cancelGovItemEdit()" title="Cancelar">✕</button></div></div>`
+        : `<div class="govit-row"><span class="govit-n">${esc(n)}</span><div class="govit-acts"><button class="govit-edit" onclick="editGovItem(${i})" title="Editar nome">✎</button><button class="govit-del" onclick="removeGovItem(${i})" title="Remover">✕</button></div></div>`
+      ).join('')
     : `<p class="cont-hint" style="padding:10px 0">Sem itens. Adicione acima. Se salvar vazio, volta para a lista padrão.</p>`;
   document.getElementById('govitens-count').textContent = arr.length + ' ' + (arr.length === 1 ? 'item' : 'itens');
+}
+function editGovItem(i) { govItemEditing = i; renderGovItens(); setTimeout(() => { const e = document.getElementById('govit-edit-inp'); if (e) { e.focus(); e.select(); } }, 40); }
+function cancelGovItemEdit() { govItemEditing = -1; renderGovItens(); }
+function saveGovItemName(i) {
+  const inp = document.getElementById('govit-edit-inp'); if (!inp) return;
+  const v = (inp.value || '').trim().toUpperCase();
+  const t = govItensTipoView;
+  if (!v) { inp.focus(); return; }
+  if (govItensEdit[t].some((x, idx) => idx !== i && String(x).toUpperCase() === v)) { alert('Já existe um item com esse nome.'); return; }
+  govItensEdit[t][i] = v;
+  govItemEditing = -1;
+  renderGovItens();
 }
 function addGovItem() {
   const inp = document.getElementById('govitens-new');
@@ -3242,11 +3258,13 @@ function addGovItem() {
   const t = govItensTipoView;
   if (!govItensEdit[t].some(x => String(x).toUpperCase() === v)) govItensEdit[t].push(v);
   inp.value = ''; inp.focus();
+  govItemEditing = -1;
   renderGovItens();
 }
 function removeGovItem(i) {
   const t = govItensTipoView;
   govItensEdit[t].splice(i, 1);
+  govItemEditing = -1;
   renderGovItens();
 }
 function salvarGovItens() {
