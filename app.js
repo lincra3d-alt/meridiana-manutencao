@@ -3436,12 +3436,20 @@ function govRecebidoDif(r) {
   if (d === 0) return ' · igual ao atual';
   return d > 0 ? ` · +${d} vs atual` : ` · ${d} vs atual`;
 }
+// Avisa, quando o local já tem contagem, o que o aceite vai fazer (somar ou substituir)
+function govRecebidoModo(r) {
+  const cur = govLocalRec(r.tipo, r.localKey);
+  if (!cur) return ''; // local novo: não há o que somar/substituir
+  return r.modo === 'somar'
+    ? ` <span class="gov-rec-modo somar">⚠ já tem ${govLocalTotal(cur)} · vai SOMAR</span>`
+    : ` <span class="gov-rec-modo subst">⚠ já tem ${govLocalTotal(cur)} · vai SUBSTITUIR</span>`;
+}
 function openGovRecebidos(tipo) {
   const recs = govRecebidosDe(tipo);
   const t = govTipo(tipo);
   const lista = recs.length ? recs.map(r => `<div class="gov-rec-item">
       <div class="gov-rec-item-top"><b>${esc(govLocalLabel(r.localKey))}</b><span>${fmtDataHora(r.ts)}${r.por ? ' · ' + esc(r.por) : ''}</span></div>
-      <div class="gov-rec-item-sub">${r.total} peças${govRecebidoDif(r)}</div>
+      <div class="gov-rec-item-sub">${r.total} peças${govRecebidoDif(r)}${govRecebidoModo(r)}</div>
       <div class="gov-rec-item-btns">
         <button class="btn btn-gold btn-xs" onclick="aceitarGovRecebido('${tipo}','${esc(r.id)}')">✓ Aceitar</button>
         <button class="btn btn-ghost btn-xs" onclick="verGovRecebido('${tipo}','${esc(r.id)}')">👁 Ver itens</button>
@@ -3470,7 +3478,15 @@ async function aceitarGovRecebido(tipo, id) {
   const r = GOV_RECEBIDOS.find(x => x && x.id === id); if (!r) { openGovRecebidos(tipo); return; }
   try {
     const ant = govLocalRec(tipo, r.localKey); // contagem que já existia (para o histórico)
-    const rec = { itens: r.itens || [], total: r.total || 0, ts: Date.now(), por: r.por || 'Equipe' };
+    const somar = (r.modo === 'somar') && ant; // só soma se pediram E já existe contagem
+    let itensFinal, totalFinal;
+    if (somar) {
+      const map = {}; (ant.itens || []).forEach(it => { if (it && it.n) map[it.n] = Number(it.q) || 0; });
+      (r.itens || []).forEach(it => { if (it && it.n) map[it.n] = (map[it.n] || 0) + (Number(it.q) || 0); });
+      itensFinal = Object.keys(map).map(n => ({ n, q: map[n] }));
+      totalFinal = itensFinal.reduce((s, x) => s + x.q, 0);
+    } else { itensFinal = r.itens || []; totalFinal = r.total || 0; }
+    const rec = { itens: itensFinal, total: totalFinal, ts: Date.now(), por: r.por || 'Equipe' };
     await db.ref(hotelPath() + '/governanca/' + tipo + '/' + r.localKey).set(rec);
     if (!GOV_DADOS[tipo]) GOV_DADOS[tipo] = {}; GOV_DADOS[tipo][r.localKey] = rec;
     const ref = db.ref(hotelPath() + '/governancaRecebidos');
@@ -3478,8 +3494,9 @@ async function aceitarGovRecebido(tipo, id) {
     arr = arr.filter(x => x && x.id !== id);
     await ref.set(arr); GOV_RECEBIDOS = arr;
     const alvoBase = govTipoLabel(tipo) + ' · ' + govLocalLabel(r.localKey);
-    if (ant) logAction('Substituiu contagem (aceite do link)', alvoBase + ' · ' + govLocalTotal(ant) + ' → ' + rec.total + ' peças · enviado por ' + (r.por || 'Equipe'), govDiffItens(ant, rec.itens));
-    else logAction('Nova contagem (aceite do link)', alvoBase + ' · ' + rec.total + ' peças · enviado por ' + (r.por || 'Equipe'), govDiffItens(null, rec.itens));
+    if (somar) logAction('Somou contagem (aceite do link)', alvoBase + ' · ' + govLocalTotal(ant) + ' + ' + (r.total || 0) + ' = ' + totalFinal + ' peças · enviado por ' + (r.por || 'Equipe'), govDiffItens(ant, itensFinal));
+    else if (ant) logAction('Substituiu contagem (aceite do link)', alvoBase + ' · ' + govLocalTotal(ant) + ' → ' + totalFinal + ' peças · enviado por ' + (r.por || 'Equipe'), govDiffItens(ant, itensFinal));
+    else logAction('Nova contagem (aceite do link)', alvoBase + ' · ' + totalFinal + ' peças · enviado por ' + (r.por || 'Equipe'), govDiffItens(null, itensFinal));
     renderGovMain(); openGovRecebidos(tipo);
   } catch (e) { console.error(e); alert('Não foi possível aceitar. Tente de novo.'); }
 }
