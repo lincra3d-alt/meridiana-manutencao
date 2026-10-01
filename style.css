@@ -211,6 +211,10 @@ header{background:var(--s1);border-bottom:1px solid var(--border);padding:13px 2
 .govit-n{font-size:13px;color:var(--text)}
 .govit-del{background:none;border:none;color:var(--muted);font-size:14px;cursor:pointer;padding:2px 6px;border-radius:6px;transition:background .12s,color .12s}
 .govit-del:hover{background:rgba(229,72,77,.15);color:var(--red2,#ff7a7e)}
+/* Detalhe item a item no historico da governanca */
+.govhist-det{display:flex;flex-wrap:wrap;gap:6px;margin-top:7px}
+.ghd-item{font-size:11px;color:var(--muted2);background:var(--s4);border:1px solid var(--border);border-radius:6px;padding:3px 8px;white-space:nowrap}
+.ghd-item b{color:var(--gold2);font-weight:700}
 .gov-sub small{color:var(--muted);font-size:10px}
 /* modo "Todos os blocos": tabela quartos / mín / rouparia / comprar (sem barra) */
 .gov-row-all{display:flex;align-items:center;gap:5px;padding:4px 0;font-size:12px}

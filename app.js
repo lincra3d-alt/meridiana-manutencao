@@ -3204,7 +3204,13 @@ function renderGovHist() {
   const el = document.getElementById('govhist-list'); if (!el) return;
   const arr = govHistEntries();
   el.innerHTML = arr.length
-    ? arr.map(l => `<div class="log-item"><div class="log-when">${fmtDT(l.ts)}</div><div class="log-main"><span class="log-acao">${esc(l.acao)}</span> ${esc(l.alvo)}</div><div class="log-origem">${esc(l.origem)}</div></div>`).join('')
+    ? arr.map(l => {
+        let det = '';
+        if (Array.isArray(l.det) && l.det.length) {
+          det = `<div class="govhist-det">${l.det.map(d => `<span class="ghd-item">${esc(d.n)} <b>${d.de} → ${d.para}</b></span>`).join('')}</div>`;
+        }
+        return `<div class="log-item"><div class="log-when">${fmtDT(l.ts)}</div><div class="log-main"><span class="log-acao">${esc(l.acao)}</span> ${esc(l.alvo)}${det}</div><div class="log-origem">${esc(l.origem)}</div></div>`;
+      }).join('')
     : '<div class="modview-note" style="padding:24px;text-align:center">Sem registros da Governança ainda. Aceites, substituições e edições passam a aparecer aqui.</div>';
   const c = document.getElementById('govhist-count'); if (c) c.textContent = arr.length + ' ' + (arr.length === 1 ? 'registro' : 'registros');
 }
@@ -3314,8 +3320,8 @@ async function salvarGovLocal() {
     await db.ref(hotelPath() + '/governanca/' + tipo + '/' + localKey).set(rec);
     if (!GOV_DADOS[tipo]) GOV_DADOS[tipo] = {}; GOV_DADOS[tipo][localKey] = rec;
     const alvoBase = govTipoLabel(tipo) + ' · ' + govLocalLabel(localKey);
-    if (curReal) logAction('Substituiu contagem (edição manual)', alvoBase + ' · ' + govLocalTotal(curReal) + ' → ' + total + ' peças');
-    else logAction('Nova contagem (edição manual)', alvoBase + ' · ' + total + ' peças');
+    if (curReal) logAction('Substituiu contagem (edição manual)', alvoBase + ' · ' + govLocalTotal(curReal) + ' → ' + total + ' peças', govDiffItens(curReal, itens));
+    else logAction('Nova contagem (edição manual)', alvoBase + ' · ' + total + ' peças', govDiffItens(null, itens));
     openGovLocal(tipo, localKey, false);
     renderGovMain();
   } catch (e) { console.error(e); alert('Não foi possível salvar. Verifique a conexão e tente de novo.'); }
@@ -3431,8 +3437,8 @@ async function aceitarGovRecebido(tipo, id) {
     arr = arr.filter(x => x && x.id !== id);
     await ref.set(arr); GOV_RECEBIDOS = arr;
     const alvoBase = govTipoLabel(tipo) + ' · ' + govLocalLabel(r.localKey);
-    if (ant) logAction('Substituiu contagem (aceite do link)', alvoBase + ' · ' + govLocalTotal(ant) + ' → ' + rec.total + ' peças · enviado por ' + (r.por || 'Equipe'));
-    else logAction('Nova contagem (aceite do link)', alvoBase + ' · ' + rec.total + ' peças · enviado por ' + (r.por || 'Equipe'));
+    if (ant) logAction('Substituiu contagem (aceite do link)', alvoBase + ' · ' + govLocalTotal(ant) + ' → ' + rec.total + ' peças · enviado por ' + (r.por || 'Equipe'), govDiffItens(ant, rec.itens));
+    else logAction('Nova contagem (aceite do link)', alvoBase + ' · ' + rec.total + ' peças · enviado por ' + (r.por || 'Equipe'), govDiffItens(null, rec.itens));
     renderGovMain(); openGovRecebidos(tipo);
   } catch (e) { console.error(e); alert('Não foi possível aceitar. Tente de novo.'); }
 }
@@ -3479,11 +3485,22 @@ function saveAll() { pushToFirebase(); }
 // ─── LOG DE ALTERAÇÕES ──────────────────────────────────────────────────────────
 function logOrigem() { return localStorage.getItem('mtnc_master') === '1' ? 'Diretoria' : hotelInfo().name; }
 function saveLog() { if (!db) return; db.ref(`${hotelPath()}/log`).set(LOG.length ? LOG : null); }
-function logAction(acao, alvo) {
+function logAction(acao, alvo, det) {
   if (!db) return;
-  LOG.unshift({ ts: Date.now(), acao: acao || '', alvo: alvo || '', origem: logOrigem() });
+  const e = { ts: Date.now(), acao: acao || '', alvo: alvo || '', origem: logOrigem() };
+  if (det && det.length) e.det = det;
+  LOG.unshift(e);
   if (LOG.length > 500) LOG.length = 500;
   saveLog();
+}
+// Diferença item a item entre a contagem antiga e a nova (só o que mudou).
+function govDiffItens(antRec, novoItens) {
+  const oldMap = {}; ((antRec && antRec.itens) || []).forEach(it => { if (it && it.n) oldMap[it.n] = Number(it.q) || 0; });
+  const newMap = {}; (novoItens || []).forEach(it => { if (it && it.n) newMap[it.n] = Number(it.q) || 0; });
+  const nomes = [...new Set([...Object.keys(oldMap), ...Object.keys(newMap)])];
+  const diffs = [];
+  nomes.forEach(n => { const a = oldMap[n] || 0, b = newMap[n] || 0; if (a !== b) diffs.push({ n, de: a, para: b }); });
+  return diffs;
 }
 function alvoRec(r) { return `${(r && r.area) || '—'} · ${(r && r.serv) || '—'}`; }
 function openHistorico() { renderHistorico(); document.getElementById('ov-log').classList.add('show'); }
