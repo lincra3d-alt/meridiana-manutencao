@@ -3291,12 +3291,15 @@ async function salvarGovLocal() {
   const itens = []; let total = 0;
   inputs.forEach(inp => { const nome = lista[+inp.dataset.idx]; if (nome == null) return; const v = (inp.value || '').trim(); const q = v === '' ? 0 : Math.max(0, parseInt(v, 10) || 0); itens.push({ n: nome, q }); total += q; });
   try {
-    const cur = govLocalRec(tipo, localKey) || {};
+    const curReal = govLocalRec(tipo, localKey); // contagem que já existia (para o histórico)
+    const cur = curReal || {};
     const rec = { itens, total, ts: Date.now(), por: cur.por || 'Supervisão' };
     if (cur.obs) rec.obs = cur.obs;
     await db.ref(hotelPath() + '/governanca/' + tipo + '/' + localKey).set(rec);
     if (!GOV_DADOS[tipo]) GOV_DADOS[tipo] = {}; GOV_DADOS[tipo][localKey] = rec;
-    logAction('Editou Governança', govTipoLabel(tipo) + ' · ' + govLocalLabel(localKey) + ' · ' + total + ' peças');
+    const alvoBase = govTipoLabel(tipo) + ' · ' + govLocalLabel(localKey);
+    if (curReal) logAction('Substituiu contagem (edição manual)', alvoBase + ' · ' + govLocalTotal(curReal) + ' → ' + total + ' peças');
+    else logAction('Nova contagem (edição manual)', alvoBase + ' · ' + total + ' peças');
     openGovLocal(tipo, localKey, false);
     renderGovMain();
   } catch (e) { console.error(e); alert('Não foi possível salvar. Verifique a conexão e tente de novo.'); }
@@ -3403,6 +3406,7 @@ function verGovRecebido(tipo, id) {
 async function aceitarGovRecebido(tipo, id) {
   const r = GOV_RECEBIDOS.find(x => x && x.id === id); if (!r) { openGovRecebidos(tipo); return; }
   try {
+    const ant = govLocalRec(tipo, r.localKey); // contagem que já existia (para o histórico)
     const rec = { itens: r.itens || [], total: r.total || 0, ts: Date.now(), por: r.por || 'Equipe' };
     await db.ref(hotelPath() + '/governanca/' + tipo + '/' + r.localKey).set(rec);
     if (!GOV_DADOS[tipo]) GOV_DADOS[tipo] = {}; GOV_DADOS[tipo][r.localKey] = rec;
@@ -3410,7 +3414,9 @@ async function aceitarGovRecebido(tipo, id) {
     const snap = await ref.once('value'); let arr = Array.isArray(snap.val()) ? snap.val() : [];
     arr = arr.filter(x => x && x.id !== id);
     await ref.set(arr); GOV_RECEBIDOS = arr;
-    logAction('Aceitou recebido Governança', govTipoLabel(tipo) + ' · ' + govLocalLabel(r.localKey) + ' · ' + rec.total + ' peças');
+    const alvoBase = govTipoLabel(tipo) + ' · ' + govLocalLabel(r.localKey);
+    if (ant) logAction('Substituiu contagem (aceite do link)', alvoBase + ' · ' + govLocalTotal(ant) + ' → ' + rec.total + ' peças · enviado por ' + (r.por || 'Equipe'));
+    else logAction('Nova contagem (aceite do link)', alvoBase + ' · ' + rec.total + ' peças · enviado por ' + (r.por || 'Equipe'));
     renderGovMain(); openGovRecebidos(tipo);
   } catch (e) { console.error(e); alert('Não foi possível aceitar. Tente de novo.'); }
 }
