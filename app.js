@@ -3311,9 +3311,13 @@ function openGovLocal(tipo, localKey, editando) {
   const total = govLocalTotal(rec);
   const linhas = itens.map((nome, idx) => {
     const q = rec ? govLocalQtd(rec, nome) : '';
+    if (!editando && (q === '' || Number(q) === 0)) return ''; // na visualização, oculta itens zerados
     const del = editando ? `<button class="cont-del" title="Remover item" onclick="removeGovItemLocal(${idx})">✕</button>` : '';
     return `<tr><td><div class="cont-item-cell">${del}<span>${esc(nome)}</span></div></td><td class="cont-q"><input type="number" inputmode="numeric" min="0" step="1" class="govloc-inp" data-idx="${idx}" value="${q === '' ? '' : esc(String(q))}" ${editando ? 'oninput="recalcGovLocalTotal()"' : 'disabled'}></td></tr>`;
   }).join('');
+  const corpo = (!editando && !linhas)
+    ? `<tr><td colspan="2" style="text-align:center;color:var(--muted);padding:14px">Nenhum item contado neste local. Clique em <b>Editar</b> para lançar.</td></tr>`
+    : linhas;
   const acoes = editando
     ? `<button class="btn btn-gold btn-xs" onclick="salvarGovLocal()">💾 Salvar</button>
        <button class="btn btn-ghost btn-xs" onclick="openGovLocal('${tipo}','${esc(localKey)}',false)">✖ Cancelar</button>
@@ -3327,7 +3331,8 @@ function openGovLocal(tipo, localKey, editando) {
     <p style="font-size:11.5px;color:var(--muted)">${govTipoLabel(tipo)} · ${sub} · Total <b id="govloc-total-live">${total}</b></p>
     ${rec && rec.obs ? `<p class="cont-hint">Obs: ${esc(rec.obs)}</p>` : ''}
     <div style="display:flex;gap:8px;margin:10px 0 12px;flex-wrap:wrap">${acoes}</div>
-    <table class="cont-table${editando ? ' editando' : ''}"><thead><tr><th>Item</th><th class="cont-q">Qtd</th></tr></thead><tbody>${linhas}</tbody></table>`;
+    ${!editando ? '<p class="cont-hint" style="margin:0 0 6px">Mostrando só os itens contados. Clique em Editar para ver e lançar todos.</p>' : ''}
+    <table class="cont-table${editando ? ' editando' : ''}"><thead><tr><th>Item</th><th class="cont-q">Qtd</th></tr></thead><tbody>${corpo}</tbody></table>`;
   document.getElementById('ov-govlocal').classList.add('show');
 }
 function closeGovLocal() { document.getElementById('ov-govlocal').classList.remove('show'); }
