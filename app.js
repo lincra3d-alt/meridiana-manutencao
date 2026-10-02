@@ -3318,7 +3318,8 @@ function openGovLocal(tipo, localKey, editando) {
     ? `<button class="btn btn-gold btn-xs" onclick="salvarGovLocal()">💾 Salvar</button>
        <button class="btn btn-ghost btn-xs" onclick="openGovLocal('${tipo}','${esc(localKey)}',false)">✖ Cancelar</button>
        <button class="btn btn-ghost btn-xs" onclick="addGovItemLocal()">➕ Adicionar item</button>`
-    : `<button class="btn btn-gold btn-xs" onclick="openGovLocal('${tipo}','${esc(localKey)}',true)">✏ Editar</button>`;
+    : `<button class="btn btn-gold btn-xs" onclick="openGovLocal('${tipo}','${esc(localKey)}',true)">✏ Editar</button>
+       <button class="btn btn-ghost btn-xs" onclick="openGovComp('${tipo}','${esc(localKey)}')">🕑 Última contagem</button>`;
   const sub = rec ? 'atualizado ' + fmtDataHora(rec.ts) + (rec.por ? ' · por ' + esc(rec.por) : '') : 'ainda não contado';
   const body = document.getElementById('govlocal-body');
   body.innerHTML = `
@@ -3330,6 +3331,36 @@ function openGovLocal(tipo, localKey, editando) {
   document.getElementById('ov-govlocal').classList.add('show');
 }
 function closeGovLocal() { document.getElementById('ov-govlocal').classList.remove('show'); }
+// Comparação Anterior × Atual do local (reconstrói a contagem anterior pelo histórico; só leitura)
+function openGovComp(tipo, localKey) {
+  const cur = govLocalRec(tipo, localKey);
+  const curMap = {}; (cur && cur.itens || []).forEach(it => { if (it && it.n) curMap[it.n] = Number(it.q) || 0; });
+  const lbl = govLocalLabel(localKey);
+  const entry = (LOG || []).find(l => l && Array.isArray(l.det) && (l.alvo || '').includes(lbl + ' · '));
+  const body = document.getElementById('govcomp-body');
+  const head = `<h3>🕑 ${esc(lbl)} <span style="font-size:12px;color:var(--muted)">· Anterior × Atual</span></h3>`;
+  if (!entry) {
+    body.innerHTML = head + `<p class="cont-hint" style="margin-top:10px">Ainda não há contagem anterior registrada para este local. A comparação aparece depois que a contagem for alterada pelo menos uma vez.</p>`;
+    document.getElementById('ov-govcomp').classList.add('show'); return;
+  }
+  const prev = Object.assign({}, curMap); entry.det.forEach(d => { prev[d.n] = Number(d.de) || 0; });
+  const nomes = govItensDe(tipo).slice();
+  Object.keys(Object.assign({}, curMap, prev)).forEach(n => { if (!nomes.includes(n)) nomes.push(n); });
+  let totP = 0, totA = 0;
+  const rows = nomes.filter(n => (curMap[n] || 0) > 0 || (prev[n] || 0) > 0).map(n => {
+    const p = prev[n] || 0, a = curMap[n] || 0; totP += p; totA += a;
+    const dif = a - p, cls = dif > 0 ? 'comp-up' : dif < 0 ? 'comp-down' : '', txt = dif === 0 ? '—' : (dif > 0 ? '+' + dif : String(dif));
+    return `<tr><td>${esc(n)}</td><td class="cont-q">${p}</td><td class="cont-q">${a}</td><td class="cont-q ${cls}">${txt}</td></tr>`;
+  }).join('');
+  const difT = totA - totP;
+  body.innerHTML = head +
+    `<p style="font-size:11.5px;color:var(--muted);margin:6px 0 12px">Contagem anterior: ${esc(fmtDataHora(entry.ts))} · ${esc(entry.acao || '')}</p>
+     <table class="cont-table"><thead><tr><th>Item</th><th class="cont-q">Anterior</th><th class="cont-q">Atual</th><th class="cont-q">Dif.</th></tr></thead>
+     <tbody>${rows}</tbody>
+     <tfoot><tr><td><b>Total</b></td><td class="cont-q"><b>${totP}</b></td><td class="cont-q"><b>${totA}</b></td><td class="cont-q"><b class="${difT > 0 ? 'comp-up' : difT < 0 ? 'comp-down' : ''}">${difT === 0 ? '—' : (difT > 0 ? '+' + difT : difT)}</b></td></tr></tfoot></table>`;
+  document.getElementById('ov-govcomp').classList.add('show');
+}
+function closeGovComp() { document.getElementById('ov-govcomp').classList.remove('show'); }
 function recalcGovLocalTotal() {
   let t = 0;
   document.querySelectorAll('#govlocal-body .govloc-inp').forEach(i => { t += parseInt(i.value, 10) || 0; });

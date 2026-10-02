@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Gestão de Manutenção · Hotel</title>
 <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@400;600;700&family=Jost:wght@300;400;500;600&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="style.css?v=37">
+<link rel="stylesheet" href="style.css?v=38">
 <style>
 .pdf-chk{display:inline-flex;align-items:center;gap:6px;padding:6px 11px;background:var(--s4);border:1px solid var(--border);border-radius:14px;font-size:11.5px;cursor:pointer;user-select:none;transition:all .15s}
 .pdf-chk:hover{background:var(--s3);border-color:var(--border2)}
@@ -721,6 +721,13 @@
   </div>
 </div>
 
+<div class="ov" id="ov-govcomp" style="z-index:10010" onclick="if(event.target===this)closeGovComp()">
+  <div class="modal" style="width:620px;max-width:96vw;max-height:88vh;padding:0;position:relative;display:flex;flex-direction:column;overflow:hidden">
+    <button class="cont-close" onclick="closeGovComp()" title="Fechar" aria-label="Fechar">✕</button>
+    <div id="govcomp-body" style="overflow:auto;padding:22px 22px 26px"></div>
+  </div>
+</div>
+
 <!-- ── MODAL: Buscar relatório por data (Carros) ── -->
 <div class="ov" id="ov-relbusca">
   <div class="modal" style="width:520px;max-width:96vw">
@@ -823,6 +830,6 @@
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.2/Sortable.min.js"></script>
-<script src="app.js?v=111"></script>
+<script src="app.js?v=112"></script>
 </body>
 </html>
