@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Gestão de Manutenção · Hotel</title>
 <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@400;600;700&family=Jost:wght@300;400;500;600&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="style.css?v=40">
+<link rel="stylesheet" href="style.css?v=41">
 <style>
 .pdf-chk{display:inline-flex;align-items:center;gap:6px;padding:6px 11px;background:var(--s4);border:1px solid var(--border);border-radius:14px;font-size:11.5px;cursor:pointer;user-select:none;transition:all .15s}
 .pdf-chk:hover{background:var(--s3);border-color:var(--border2)}
@@ -727,19 +727,21 @@
     <button class="cont-close" onclick="closeGovPrint()" title="Fechar" aria-label="Fechar">✕</button>
     <div style="padding:22px">
       <h3 class="cont-h4" style="margin-top:0">🖨 O que você quer imprimir?</h3>
-      <p class="cont-hint" style="margin-bottom:14px">Escolha uma opção. O detalhado mostra cada quarto com seus itens; o total soma por item.</p>
-      <div class="gov-print-grid">
-        <button class="btn btn-ghost" onclick="govPrintDo('b1')">Bloco 1</button>
-        <button class="btn btn-ghost" onclick="govPrintDo('b2')">Bloco 2</button>
-        <button class="btn btn-ghost" onclick="govPrintDo('b3')">Bloco 3</button>
-        <button class="btn btn-ghost" onclick="govPrintDo('b4')">Bloco 4</button>
+      <p class="cont-hint" style="margin-bottom:12px">Marque uma ou várias opções. O detalhado mostra cada quarto com seus itens e, no fim, o total por item do bloco. O "Total por item (geral)" soma tudo.</p>
+      <div style="display:flex;gap:10px;margin-bottom:10px">
+        <button class="btn btn-ghost btn-xs" onclick="govPrintMarcarTodos(true)">Marcar todos</button>
+        <button class="btn btn-ghost btn-xs" onclick="govPrintMarcarTodos(false)">Limpar</button>
       </div>
-      <button class="btn btn-ghost" style="width:100%;margin-top:8px" onclick="govPrintDo('blocos')">Todos os blocos (detalhado)</button>
-      <div class="gov-print-grid" style="margin-top:8px">
-        <button class="btn btn-ghost" onclick="govPrintDo('rouparia')">Rouparia</button>
-        <button class="btn btn-ghost" onclick="govPrintDo('danificados')">Danificados</button>
+      <div class="govprint-opts">
+        <label><input type="checkbox" class="gp-chk" value="b1"> Bloco 1</label>
+        <label><input type="checkbox" class="gp-chk" value="b2"> Bloco 2</label>
+        <label><input type="checkbox" class="gp-chk" value="b3"> Bloco 3</label>
+        <label><input type="checkbox" class="gp-chk" value="b4"> Bloco 4</label>
+        <label><input type="checkbox" class="gp-chk" value="rouparia"> Rouparia</label>
+        <label><input type="checkbox" class="gp-chk" value="danificados"> Danificados</label>
+        <label><input type="checkbox" class="gp-chk" value="total"> Total por item (geral)</label>
       </div>
-      <button class="btn btn-gold" style="width:100%;margin-top:12px" onclick="govPrintDo('total')">Total por item (ex.: T. BANHO 300)</button>
+      <button class="btn btn-gold" style="width:100%;margin-top:14px" onclick="govPrintSelecionados()">🖨 Imprimir selecionados</button>
     </div>
   </div>
 </div>
@@ -853,6 +855,6 @@
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.2/Sortable.min.js"></script>
-<script src="app.js?v=117"></script>
+<script src="app.js?v=118"></script>
 </body>
 </html>
