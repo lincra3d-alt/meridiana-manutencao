@@ -3438,15 +3438,14 @@ function imprimirGov(tipo) {
   const linhasItens = itens.map(n => `<tr><td>${esc(n)}</td><td style="text-align:right">${agg[n] || 0}</td></tr>`).join('');
   const linhasBloco = GOV_BLOCOS.map(b => `<tr><td>${esc(b.nome)}</td><td style="text-align:right">${govBlocoTotal(tipo, b.k)}</td></tr>`).join('')
     + govEspeciaisDe(tipo).map(e => { const rec = govLocalRec(tipo, e.k + '__geral'); return `<tr><td>${esc(e.nome)}</td><td style="text-align:right">${rec ? govLocalTotal(rec) : 0}</td></tr>`; }).join('');
-  const totalGeral = govTotalGeral(tipo);
   const w = window.open('', '_blank'); if (!w) { alert('Permita pop-ups para imprimir.'); return; }
   w.document.write(`<!doctype html><html><head><meta charset="utf-8"><title>${esc(t.l)} Governança</title>
     <style>body{font-family:Arial,Helvetica,sans-serif;color:#111;margin:28px}h1{font-size:18px;margin:0 0 2px}h2{font-size:13px;margin:18px 0 6px}.sub{color:#555;font-size:12px;margin-bottom:8px}table{width:100%;border-collapse:collapse;font-size:12px;margin-bottom:8px}th,td{border:1px solid #ccc;padding:5px 8px;text-align:left}th{background:#f2f2f2}tfoot td{font-weight:bold;background:#f7f7f7}</style></head><body>
     <h1>Governança · ${esc(hotelInfo().name)} · ${esc(t.l)} (${esc(t.cad)})</h1>
-    <div class="sub">Total geral ${totalGeral} peças · impresso em ${fmtDataHora(Date.now())}</div>
-    <h2>Total por local</h2>
-    <table><thead><tr><th>Local</th><th style="text-align:right">Peças</th></tr></thead><tbody>${linhasBloco}</tbody><tfoot><tr><td>Total geral</td><td style="text-align:right">${totalGeral}</td></tr></tfoot></table>
-    <h2>Total por item (todos os locais)</h2>
+    <div class="sub">Impresso em ${fmtDataHora(Date.now())}</div>
+    <h2>Peças por local</h2>
+    <table><thead><tr><th>Local</th><th style="text-align:right">Peças</th></tr></thead><tbody>${linhasBloco}</tbody></table>
+    <h2>Peças por item (todos os locais)</h2>
     <table><thead><tr><th>Item</th><th style="text-align:right">Qtd</th></tr></thead><tbody>${linhasItens}</tbody></table>
     </body></html>`);
   w.document.close(); setTimeout(() => { try { w.print(); } catch (e) {} }, 300);
