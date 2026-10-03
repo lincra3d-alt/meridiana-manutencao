@@ -1,5 +1,5 @@
 // ─── CONSTANTS ────────────────────────────────────────────────────────────────
-const APP_VERSION = 'v115';
+const APP_VERSION = 'v116';
 const MONTHS_PT = ['Jan','Fev','Mar','Abr','Mai','Jun','Jul','Ago','Set','Out','Nov','Dez'];
 const PRIO_CYCLE = ['ALTA','MEDIA','BAIXA'];
 const ST_CYCLE   = ['INDENTIFICADO','ANDAMENTO','CONCLUIDO'];
@@ -3436,17 +3436,41 @@ async function removeGovItemLocal(idx) {
 function imprimirGov(tipo) {
   const t = govTipo(tipo);
   const itens = govItensDe(tipo); const agg = govAggItens(tipo);
-  const linhasItens = itens.map(n => `<tr><td>${esc(n)}</td><td style="text-align:right">${agg[n] || 0}</td></tr>`).join('');
-  const linhasBloco = GOV_BLOCOS.map(b => `<tr><td>${esc(b.nome)}</td><td style="text-align:right">${govBlocoTotal(tipo, b.k)}</td></tr>`).join('')
-    + govEspeciaisDe(tipo).map(e => { const rec = govLocalRec(tipo, e.k + '__geral'); return `<tr><td>${esc(e.nome)}</td><td style="text-align:right">${rec ? govLocalTotal(rec) : 0}</td></tr>`; }).join('');
+  // Peças por item (total por item, só o que tem quantidade)
+  const linhasItens = itens.filter(n => (agg[n] || 0) > 0).map(n => `<tr><td>${esc(n)}</td><td style="text-align:right">${agg[n] || 0}</td></tr>`).join('');
+  // Detalhado por local: cada local com seus itens (só itens com quantidade)
+  function linhasLocal(key) {
+    const rec = govLocalRec(tipo, key);
+    if (!rec || !Array.isArray(rec.itens)) return '';
+    const its = rec.itens.filter(it => it && it.q > 0);
+    if (!its.length) return '';
+    return its.map(it => `<tr><td style="padding-left:18px">${esc(it.n)}</td><td style="text-align:right">${it.q}</td></tr>`).join('');
+  }
+  let detalhado = '';
+  GOV_BLOCOS.forEach(b => {
+    const qs = b.quartos.filter(q => { const l = linhasLocal(b.k + '__' + q); return l; });
+    if (!qs.length) return;
+    detalhado += `<tr><td colspan="2" style="background:#eceff3;font-weight:bold">${esc(b.nome)}</td></tr>`;
+    b.quartos.forEach(q => {
+      const l = linhasLocal(b.k + '__' + q);
+      if (!l) return;
+      detalhado += `<tr><td colspan="2" style="font-weight:bold;color:#444">Quarto ${esc(q)} · ${govLocalTotal(govLocalRec(tipo, b.k + '__' + q))} peças</td></tr>${l}`;
+    });
+  });
+  govEspeciaisDe(tipo).forEach(e => {
+    const l = linhasLocal(e.k + '__geral');
+    if (!l) return;
+    detalhado += `<tr><td colspan="2" style="background:#eceff3;font-weight:bold">${esc(e.nome)} · ${govLocalTotal(govLocalRec(tipo, e.k + '__geral'))} peças</td></tr>${l}`;
+  });
+  if (!detalhado) detalhado = '<tr><td colspan="2" style="color:#777">Nenhum local contado ainda.</td></tr>';
   const w = window.open('', '_blank'); if (!w) { alert('Permita pop-ups para imprimir.'); return; }
   w.document.write(`<!doctype html><html><head><meta charset="utf-8"><title>${esc(t.l)} Governança</title>
-    <style>body{font-family:Arial,Helvetica,sans-serif;color:#111;margin:28px}h1{font-size:18px;margin:0 0 2px}h2{font-size:13px;margin:18px 0 6px}.sub{color:#555;font-size:12px;margin-bottom:8px}table{width:100%;border-collapse:collapse;font-size:12px;margin-bottom:8px}th,td{border:1px solid #ccc;padding:5px 8px;text-align:left}th{background:#f2f2f2}tfoot td{font-weight:bold;background:#f7f7f7}</style></head><body>
+    <style>body{font-family:Arial,Helvetica,sans-serif;color:#111;margin:28px}h1{font-size:18px;margin:0 0 2px}h2{font-size:13px;margin:18px 0 6px}.sub{color:#555;font-size:12px;margin-bottom:8px}table{width:100%;border-collapse:collapse;font-size:12px;margin-bottom:8px}th,td{border:1px solid #ccc;padding:5px 8px;text-align:left}th{background:#f2f2f2}</style></head><body>
     <h1>Governança · ${esc(hotelInfo().name)} · ${esc(t.l)} (${esc(t.cad)})</h1>
     <div class="sub">Impresso em ${fmtDataHora(Date.now())}</div>
-    <h2>Peças por local</h2>
-    <table><thead><tr><th>Local</th><th style="text-align:right">Peças</th></tr></thead><tbody>${linhasBloco}</tbody></table>
-    <h2>Peças por item (todos os locais)</h2>
+    <h2>Detalhado por local</h2>
+    <table><thead><tr><th>Local / Item</th><th style="text-align:right">Qtd</th></tr></thead><tbody>${detalhado}</tbody></table>
+    <h2>Total por item (todos os locais)</h2>
     <table><thead><tr><th>Item</th><th style="text-align:right">Qtd</th></tr></thead><tbody>${linhasItens}</tbody></table>
     </body></html>`);
   w.document.close(); setTimeout(() => { try { w.print(); } catch (e) {} }, 300);
