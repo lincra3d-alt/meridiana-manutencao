@@ -1,4 +1,5 @@
 // ─── CONSTANTS ────────────────────────────────────────────────────────────────
+const APP_VERSION = 'v115';
 const MONTHS_PT = ['Jan','Fev','Mar','Abr','Mai','Jun','Jul','Ago','Set','Out','Nov','Dez'];
 const PRIO_CYCLE = ['ALTA','MEDIA','BAIXA'];
 const ST_CYCLE   = ['INDENTIFICADO','ANDAMENTO','CONCLUIDO'];
@@ -4725,6 +4726,7 @@ function resumeSession() {
 
 (function init() {
   applyTheme(localStorage.getItem('theme') || 'dark');
+  try { const v = document.getElementById('app-ver'); if (v) v.textContent = APP_VERSION; } catch (e) {}
   document.getElementById('setup-screen').classList.add('hidden');
   try { const p = localStorage.getItem('mtnc_profile'); if (p) activeProfile = JSON.parse(p); } catch (e) { activeProfile = null; }
   buildLanding();

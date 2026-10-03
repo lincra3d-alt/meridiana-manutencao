@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Gestão de Manutenção · Hotel</title>
 <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@400;600;700&family=Jost:wght@300;400;500;600&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="style.css?v=38">
+<link rel="stylesheet" href="style.css?v=39">
 <style>
 .pdf-chk{display:inline-flex;align-items:center;gap:6px;padding:6px 11px;background:var(--s4);border:1px solid var(--border);border-radius:14px;font-size:11.5px;cursor:pointer;user-select:none;transition:all .15s}
 .pdf-chk:hover{background:var(--s3);border-color:var(--border2)}
@@ -494,6 +494,7 @@
     <span id="sync-status" style="font-size:11px;color:var(--muted2);display:flex;align-items:center">
       <span class="sync-dot syncing" id="sync-dot"></span><span id="sync-txt">Conectando…</span>
     </span>
+    <span id="app-ver" title="Versão do sistema" style="font-size:10px;color:var(--muted);opacity:.7"></span>
     <div class="sp" id="sp"><div class="sp-dot"></div>Salvo</div>
   </div>
 </header>
@@ -830,6 +831,6 @@
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.2/Sortable.min.js"></script>
-<script src="app.js?v=114"></script>
+<script src="app.js?v=115"></script>
 </body>
 </html>
