@@ -1,5 +1,5 @@
 // ─── CONSTANTS ────────────────────────────────────────────────────────────────
-const APP_VERSION = 'v116';
+const APP_VERSION = 'v117';
 const MONTHS_PT = ['Jan','Fev','Mar','Abr','Mai','Jun','Jul','Ago','Set','Out','Nov','Dez'];
 const PRIO_CYCLE = ['ALTA','MEDIA','BAIXA'];
 const ST_CYCLE   = ['INDENTIFICADO','ANDAMENTO','CONCLUIDO'];
@@ -3433,45 +3433,58 @@ async function removeGovItemLocal(idx) {
   } catch (e) { console.error(e); alert('Não foi possível remover o item.'); }
 }
 
-function imprimirGov(tipo) {
+// Impressão da Governança: primeiro escolhe o que imprimir, depois gera
+let govPrintTipo = null;
+function imprimirGov(tipo) { govPrintTipo = tipo; document.getElementById('ov-govprint').classList.add('show'); }
+function closeGovPrint() { document.getElementById('ov-govprint').classList.remove('show'); }
+// linhas de itens (q>0) de um local
+function govLinhasLocalImp(tipo, key) {
+  const rec = govLocalRec(tipo, key);
+  if (!rec || !Array.isArray(rec.itens)) return '';
+  const its = rec.itens.filter(it => it && it.q > 0);
+  if (!its.length) return '';
+  return its.map(it => `<tr><td style="padding-left:18px">${esc(it.n)}</td><td style="text-align:right">${it.q}</td></tr>`).join('');
+}
+// bloco detalhado (cabeçalho + quartos + itens)
+function govDetalhadoBloco(tipo, b) {
+  let out = '', any = false;
+  b.quartos.forEach(q => {
+    const l = govLinhasLocalImp(tipo, b.k + '__' + q); if (!l) return; any = true;
+    out += `<tr><td colspan="2" style="font-weight:bold;color:#444">Quarto ${esc(q)} · ${govLocalTotal(govLocalRec(tipo, b.k + '__' + q))} peças</td></tr>${l}`;
+  });
+  if (!any) return '';
+  return `<tr><td colspan="2" style="background:#eceff3;font-weight:bold">${esc(b.nome)}</td></tr>${out}`;
+}
+function govPrintDo(escopo) {
+  const tipo = govPrintTipo || govView;
+  closeGovPrint();
   const t = govTipo(tipo);
-  const itens = govItensDe(tipo); const agg = govAggItens(tipo);
-  // Peças por item (total por item, só o que tem quantidade)
-  const linhasItens = itens.filter(n => (agg[n] || 0) > 0).map(n => `<tr><td>${esc(n)}</td><td style="text-align:right">${agg[n] || 0}</td></tr>`).join('');
-  // Detalhado por local: cada local com seus itens (só itens com quantidade)
-  function linhasLocal(key) {
-    const rec = govLocalRec(tipo, key);
-    if (!rec || !Array.isArray(rec.itens)) return '';
-    const its = rec.itens.filter(it => it && it.q > 0);
-    if (!its.length) return '';
-    return its.map(it => `<tr><td style="padding-left:18px">${esc(it.n)}</td><td style="text-align:right">${it.q}</td></tr>`).join('');
+  let titulo = '', corpo = '';
+  if (escopo === 'total') {
+    const agg = govAggItensFiltro(tipo, 'tudo'); // blocos + rouparia, sem danificados
+    const linhas = govItensDe(tipo).filter(n => (agg[n] || 0) > 0).map(n => `<tr><td>${esc(n)}</td><td style="text-align:right">${agg[n]}</td></tr>`).join('');
+    titulo = 'Total por item';
+    corpo = `<table><thead><tr><th>Item</th><th style="text-align:right">Qtd</th></tr></thead><tbody>${linhas || '<tr><td colspan="2" style="color:#777">Nada contado.</td></tr>'}</tbody></table>`;
+  } else {
+    let rows = '';
+    if (escopo === 'blocos') GOV_BLOCOS.forEach(b => rows += govDetalhadoBloco(tipo, b));
+    else if (escopo === 'rouparia' || escopo === 'danificados') {
+      const k = escopo === 'rouparia' ? 'governanca__geral' : 'danificados__geral';
+      const l = govLinhasLocalImp(tipo, k);
+      if (l) rows = `<tr><td colspan="2" style="background:#eceff3;font-weight:bold">${esc(govLocalLabel(k))} · ${govLocalTotal(govLocalRec(tipo, k))} peças</td></tr>${l}`;
+    } else { const b = GOV_BLOCOS.find(x => x.k === escopo); if (b) rows = govDetalhadoBloco(tipo, b); }
+    if (!rows) rows = '<tr><td colspan="2" style="color:#777">Nenhum local contado.</td></tr>';
+    const nomeEsc = escopo === 'blocos' ? 'Todos os blocos' : escopo === 'rouparia' ? 'Rouparia' : escopo === 'danificados' ? 'Danificados' : ((GOV_BLOCOS.find(x => x.k === escopo) || {}).nome || '');
+    titulo = 'Detalhado · ' + nomeEsc;
+    corpo = `<table><thead><tr><th>Local / Item</th><th style="text-align:right">Qtd</th></tr></thead><tbody>${rows}</tbody></table>`;
   }
-  let detalhado = '';
-  GOV_BLOCOS.forEach(b => {
-    const qs = b.quartos.filter(q => { const l = linhasLocal(b.k + '__' + q); return l; });
-    if (!qs.length) return;
-    detalhado += `<tr><td colspan="2" style="background:#eceff3;font-weight:bold">${esc(b.nome)}</td></tr>`;
-    b.quartos.forEach(q => {
-      const l = linhasLocal(b.k + '__' + q);
-      if (!l) return;
-      detalhado += `<tr><td colspan="2" style="font-weight:bold;color:#444">Quarto ${esc(q)} · ${govLocalTotal(govLocalRec(tipo, b.k + '__' + q))} peças</td></tr>${l}`;
-    });
-  });
-  govEspeciaisDe(tipo).forEach(e => {
-    const l = linhasLocal(e.k + '__geral');
-    if (!l) return;
-    detalhado += `<tr><td colspan="2" style="background:#eceff3;font-weight:bold">${esc(e.nome)} · ${govLocalTotal(govLocalRec(tipo, e.k + '__geral'))} peças</td></tr>${l}`;
-  });
-  if (!detalhado) detalhado = '<tr><td colspan="2" style="color:#777">Nenhum local contado ainda.</td></tr>';
   const w = window.open('', '_blank'); if (!w) { alert('Permita pop-ups para imprimir.'); return; }
   w.document.write(`<!doctype html><html><head><meta charset="utf-8"><title>${esc(t.l)} Governança</title>
     <style>body{font-family:Arial,Helvetica,sans-serif;color:#111;margin:28px}h1{font-size:18px;margin:0 0 2px}h2{font-size:13px;margin:18px 0 6px}.sub{color:#555;font-size:12px;margin-bottom:8px}table{width:100%;border-collapse:collapse;font-size:12px;margin-bottom:8px}th,td{border:1px solid #ccc;padding:5px 8px;text-align:left}th{background:#f2f2f2}</style></head><body>
     <h1>Governança · ${esc(hotelInfo().name)} · ${esc(t.l)} (${esc(t.cad)})</h1>
-    <div class="sub">Impresso em ${fmtDataHora(Date.now())}</div>
-    <h2>Detalhado por local</h2>
-    <table><thead><tr><th>Local / Item</th><th style="text-align:right">Qtd</th></tr></thead><tbody>${detalhado}</tbody></table>
-    <h2>Total por item (todos os locais)</h2>
-    <table><thead><tr><th>Item</th><th style="text-align:right">Qtd</th></tr></thead><tbody>${linhasItens}</tbody></table>
+    <div class="sub">${esc(titulo)} · impresso em ${fmtDataHora(Date.now())}</div>
+    <h2>${esc(titulo)}</h2>
+    ${corpo}
     </body></html>`);
   w.document.close(); setTimeout(() => { try { w.print(); } catch (e) {} }, 300);
 }
