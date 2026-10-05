@@ -1,5 +1,5 @@
 // ─── CONSTANTS ────────────────────────────────────────────────────────────────
-const APP_VERSION = 'v121';
+const APP_VERSION = 'v122';
 const MONTHS_PT = ['Jan','Fev','Mar','Abr','Mai','Jun','Jul','Ago','Set','Out','Nov','Dez'];
 const PRIO_CYCLE = ['ALTA','MEDIA','BAIXA'];
 const ST_CYCLE   = ['INDENTIFICADO','ANDAMENTO','CONCLUIDO'];
@@ -191,21 +191,37 @@ const HOTELS_BASE = [
 // Unidades criadas na Área Administrativa (config/unidades no Firebase) + as fixas acima.
 let UNIDADES_CUSTOM = {};
 let HOTELS = HOTELS_BASE.slice();
-function unidadeFromConfig(u) {
-  const h = { key: u.key, name: u.name || u.key, tag: u.tag || '', icon: u.icon || '🏨', path: u.path || ('hotels/' + u.key), custom: true };
-  const m = u.mods || {};
-  if (m.gov) h.governanca = true;
-  if (m.cont) h.contagem = true;
-  if (m.inv) h.inventario = true;
-  if (m.frota) { h.frota = true; h.labels = { plan: 'Serviços', planOne: 'Serviço', planIcon: '🔧', emrg: 'Viagem', emrgOne: 'Viagem', emrgIcon: '🚗' }; h.servicos = CARROS_SERVICOS; h.emrgServicos = VIAGEM_DESTINOS; h.veiculos = CARROS_VEICULOS; h.geradores = CARROS_GERADORES; }
+// Módulos padrão de uma unidade fixa (quando não há override no config).
+function baseModsDe(h) {
+  if (h.frota) return { frota: true };
+  return { plan: true, emrg: true, asg: true, cont: !!h.contagem, gov: !!h.governanca, inv: !!h.inventario };
+}
+// Aplica os módulos (override ou padrão) sobre o objeto da unidade, ligando/desligando os recursos.
+function efetivarUnidade(baseObj, cfg) {
+  const h = Object.assign({}, baseObj);
+  if (cfg) { if (cfg.name) h.name = cfg.name; if (cfg.tag != null) h.tag = cfg.tag; if (cfg.icon) h.icon = cfg.icon; }
+  const mods = (cfg && cfg.mods) ? cfg.mods : baseModsDe(baseObj);
+  h.mods = mods;
+  h.frota = !!mods.frota; h.governanca = !!mods.gov; h.contagem = !!mods.cont; h.inventario = !!mods.inv;
+  if (mods.frota) {
+    h.labels = h.labels || { plan: 'Serviços', planOne: 'Serviço', planIcon: '🔧', emrg: 'Viagem', emrgOne: 'Viagem', emrgIcon: '🚗' };
+    h.servicos = h.servicos || CARROS_SERVICOS; h.emrgServicos = h.emrgServicos || VIAGEM_DESTINOS;
+    h.veiculos = h.veiculos || CARROS_VEICULOS; h.geradores = h.geradores || CARROS_GERADORES;
+  } else {
+    delete h.labels; delete h.emrgServicos; delete h.veiculos; delete h.geradores;
+    if (h.servicos === CARROS_SERVICOS) delete h.servicos;
+  }
   return h;
 }
 function rebuildHotels() {
   const baseKeys = new Set(HOTELS_BASE.map(h => h.key));
-  const extra = Object.values(UNIDADES_CUSTOM || {})
-    .filter(u => u && u.key && u.ativo !== false && !baseKeys.has(u.key))
-    .map(unidadeFromConfig);
-  HOTELS = HOTELS_BASE.concat(extra);
+  const out = HOTELS_BASE.map(b => efetivarUnidade(b, UNIDADES_CUSTOM[b.key]));
+  Object.values(UNIDADES_CUSTOM || {}).forEach(u => {
+    if (!u || !u.key || baseKeys.has(u.key) || u.ativo === false) return;
+    const baseObj = { key: u.key, name: u.name || u.key, tag: u.tag || '', icon: u.icon || '🏨', path: u.path || ('hotels/' + u.key), custom: true };
+    out.push(efetivarUnidade(baseObj, u));
+  });
+  HOTELS = out;
 }
 const DEFAULT_LABELS = { plan: 'Planejados', planOne: 'Planejado', planIcon: '📋', emrg: 'Emergenciais', emrgOne: 'Emergencial', emrgIcon: '⚡' };
 let currentHotel = localStorage.getItem('currentHotel') || 'costa_sol';
@@ -626,20 +642,33 @@ async function openUnidades() {
   document.getElementById('ov-unidades').classList.add('show');
 }
 function closeUnidades() { document.getElementById('ov-unidades').classList.remove('show'); }
+function unidadeModsEditando(key) {
+  if (!key) return { plan: true, emrg: true, asg: true };
+  const cfg = UNIDADES_CUSTOM[key];
+  if (cfg && cfg.mods) return cfg.mods;
+  const h = HOTELS.find(x => x.key === key);
+  return h ? (h.mods || baseModsDe(h)) : {};
+}
+function modsResumo(m) {
+  if (m.frota) return 'Frota (Serviços + Viagem)';
+  const a = [];
+  if (m.plan) a.push('Planejado'); if (m.emrg) a.push('Emergencial'); if (m.asg) a.push('ASG');
+  if (m.cont) a.push('Contagem'); if (m.gov) a.push('Governança'); if (m.inv) a.push('Inventário');
+  return a.join(', ') || '(sem módulos)';
+}
 function renderUnidadesList() {
+  const linhaUnidade = (h, isBase) => {
+    const m = h.mods || baseModsDe(h);
+    const over = !!UNIDADES_CUSTOM[h.key];
+    const acts = isBase
+      ? `<button class="btn btn-ghost btn-xs" onclick="openUnidadeEditor('${esc(h.key)}')">✏ Editar</button>${over ? `<button class="btn btn-ghost btn-xs" onclick="resetUnidade('${esc(h.key)}')" title="Voltar ao padrão">↩</button>` : ''}`
+      : `<button class="btn btn-ghost btn-xs" onclick="openUnidadeEditor('${esc(h.key)}')">✏ Editar</button><button class="btn btn-ghost btn-xs" onclick="deleteUnidade('${esc(h.key)}')">🗑</button>`;
+    return `<div class="uni-row"><div class="uni-info"><b>${h.icon || '🏨'} ${esc(h.name)}${isBase && over ? ' <span class="uni-off">(personalizada)</span>' : ''}</b><span>${esc(h.tag || '')} · ${modsResumo(m)}</span></div><div class="uni-acts">${acts}</div></div>`;
+  };
   const baseKeys = new Set(HOTELS_BASE.map(h => h.key));
-  const fixas = HOTELS_BASE.map(h => `<div class="uni-row"><div class="uni-info"><b>${esc(h.name)}</b><span>${esc(h.tag || '')} · fixa do sistema</span></div><span class="uni-lock">🔒</span></div>`).join('');
-  const custom = Object.values(UNIDADES_CUSTOM || {}).filter(u => u && u.key && !baseKeys.has(u.key))
-    .sort((a, b) => (a.name || '').localeCompare(b.name || ''))
-    .map(u => {
-      const mods = []; const m = u.mods || {};
-      if (m.frota) mods.push('Frota'); else { mods.push('Planejado', 'Emergencial', 'ASG'); if (m.cont) mods.push('Contagem'); if (m.gov) mods.push('Governança'); if (m.inv) mods.push('Inventário'); }
-      return `<div class="uni-row"><div class="uni-info"><b>${u.icon || '🏨'} ${esc(u.name)}${u.ativo === false ? ' <span class="uni-off">(inativa)</span>' : ''}</b><span>${esc(u.tag || '')} · ${mods.join(', ')}</span></div>
-        <div class="uni-acts">
-          <button class="btn btn-ghost btn-xs" onclick="openUnidadeEditor('${esc(u.key)}')">✏ Editar</button>
-          <button class="btn btn-ghost btn-xs" onclick="deleteUnidade('${esc(u.key)}')">🗑</button>
-        </div></div>`;
-    }).join('') || '<p class="cont-hint" style="padding:8px 0">Nenhuma unidade criada ainda. Clique em "Nova unidade".</p>';
+  const fixas = HOTELS.filter(h => baseKeys.has(h.key)).map(h => linhaUnidade(h, true)).join('');
+  const customList = HOTELS.filter(h => h.custom).sort((a, b) => (a.name || '').localeCompare(b.name || ''));
+  const custom = customList.length ? customList.map(h => linhaUnidade(h, false)).join('') : '<p class="cont-hint" style="padding:8px 0">Nenhuma unidade criada ainda. Clique em "Nova unidade".</p>';
   document.getElementById('unidades-body').innerHTML = `
     <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:12px">
       <h3 class="cont-h4" style="margin:0">🏨 Unidades</h3>
@@ -648,30 +677,31 @@ function renderUnidadesList() {
     <div id="uni-editor"></div>
     <h4 class="cont-h4" style="font-size:13px;margin:4px 0 6px">Criadas por você</h4>
     ${custom}
-    <h4 class="cont-h4" style="font-size:13px;margin:16px 0 6px">Fixas do sistema</h4>
+    <h4 class="cont-h4" style="font-size:13px;margin:16px 0 6px">Do sistema (também editáveis)</h4>
     ${fixas}`;
 }
 function openUnidadeEditor(key) {
-  const u = key ? (UNIDADES_CUSTOM[key] || {}) : {};
-  const m = u.mods || {};
+  const info = key ? (HOTELS.find(x => x.key === key) || UNIDADES_CUSTOM[key] || {}) : {};
+  const m = unidadeModsEditando(key);
+  const chk = (id, on, lbl) => `<label><input type="checkbox" id="${id}" ${on ? 'checked' : ''}> ${lbl}</label>`;
   const el = document.getElementById('uni-editor');
   el.innerHTML = `
     <div class="uni-form">
-      <div class="uni-f"><label>Nome</label><input id="uf-nome" value="${esc(u.name || '')}" placeholder="Ex.: Pousada do Mar"></div>
-      <div class="uni-f"><label>Etiqueta</label><input id="uf-tag" value="${esc(u.tag || '')}" placeholder="Ex.: Boutique Hotel"></div>
-      <div class="uni-f uni-f-ic"><label>Ícone</label><input id="uf-icon" value="${esc(u.icon || '🏨')}" maxlength="2" placeholder="🏨"></div>
-      <div class="uni-f uni-f-full"><label>Tipo</label>
-        <select id="uf-tipo" onchange="uniEditorTipo()">
-          <option value="hotel"${m.frota ? '' : ' selected'}>Hotel / Pousada</option>
-          <option value="frota"${m.frota ? ' selected' : ''}>Frota (Carros)</option>
-        </select>
+      <div class="uni-f"><label>Nome</label><input id="uf-nome" value="${esc(info.name || '')}" placeholder="Ex.: Pousada do Mar"></div>
+      <div class="uni-f"><label>Etiqueta</label><input id="uf-tag" value="${esc(info.tag || '')}" placeholder="Ex.: Boutique Hotel"></div>
+      <div class="uni-f uni-f-ic"><label>Ícone</label><input id="uf-icon" value="${esc(info.icon || '🏨')}" maxlength="2" placeholder="🏨"></div>
+      <div class="uni-f uni-f-full">
+        <label class="uni-frota"><input type="checkbox" id="uf-frota" ${m.frota ? 'checked' : ''} onchange="uniEditorTipo()"> É unidade de Frota (Carros: Serviços + Viagem)</label>
       </div>
-      <div class="uni-f uni-f-full" id="uf-extras" style="${m.frota ? 'display:none' : ''}">
-        <label>Módulos extras (Planejado, Emergencial e ASG já vêm por padrão)</label>
+      <div class="uni-f uni-f-full" id="uf-mods" style="${m.frota ? 'display:none' : ''}">
+        <label>Módulos (marque os que esta unidade tem)</label>
         <div class="uni-chks">
-          <label><input type="checkbox" id="uf-cont" ${m.cont ? 'checked' : ''}> Contagem</label>
-          <label><input type="checkbox" id="uf-gov" ${m.gov ? 'checked' : ''}> Governança</label>
-          <label><input type="checkbox" id="uf-inv" ${m.inv ? 'checked' : ''}> Inventário</label>
+          ${chk('uf-plan', m.plan, 'Planejado')}
+          ${chk('uf-emrg', m.emrg, 'Emergencial')}
+          ${chk('uf-asg', m.asg, 'ASG')}
+          ${chk('uf-cont', m.cont, 'Contagem')}
+          ${chk('uf-gov', m.gov, 'Governança')}
+          ${chk('uf-inv', m.inv, 'Inventário')}
         </div>
       </div>
       <div class="uni-f uni-f-full" style="display:flex;gap:10px;justify-content:flex-end;margin-top:4px">
@@ -681,18 +711,23 @@ function openUnidadeEditor(key) {
     </div>`;
 }
 function uniEditorTipo() {
-  const frota = document.getElementById('uf-tipo').value === 'frota';
-  document.getElementById('uf-extras').style.display = frota ? 'none' : '';
+  const frota = document.getElementById('uf-frota').checked;
+  document.getElementById('uf-mods').style.display = frota ? 'none' : '';
 }
 async function salvarUnidade(key) {
   const nome = (document.getElementById('uf-nome').value || '').trim();
   if (!nome) { alert('Dê um nome para a unidade.'); return; }
-  const frota = document.getElementById('uf-tipo').value === 'frota';
-  const mods = frota ? { frota: true } : {
-    cont: document.getElementById('uf-cont').checked,
-    gov: document.getElementById('uf-gov').checked,
-    inv: document.getElementById('uf-inv').checked,
-  };
+  const frota = document.getElementById('uf-frota').checked;
+  let mods;
+  if (frota) mods = { frota: true };
+  else {
+    mods = {
+      plan: document.getElementById('uf-plan').checked, emrg: document.getElementById('uf-emrg').checked, asg: document.getElementById('uf-asg').checked,
+      cont: document.getElementById('uf-cont').checked, gov: document.getElementById('uf-gov').checked, inv: document.getElementById('uf-inv').checked,
+    };
+    if (!mods.plan && !mods.emrg && !mods.asg && !mods.cont && !mods.gov && !mods.inv) { alert('Marque pelo menos um módulo.'); return; }
+  }
+  const isBase = key && HOTELS_BASE.some(h => h.key === key);
   let k = key;
   if (!k) {
     k = unidadeSlug(nome);
@@ -700,19 +735,32 @@ async function salvarUnidade(key) {
     let base = k, i = 2; while (existe.has(k)) { k = base + '_' + i; i++; }
   }
   const atual = UNIDADES_CUSTOM[k] || {};
+  const basePath = isBase ? (HOTELS_BASE.find(h => h.key === k) || {}).path : null;
   const rec = {
     key: k, name: nome,
     tag: (document.getElementById('uf-tag').value || '').trim(),
     icon: (document.getElementById('uf-icon').value || '🏨').trim() || '🏨',
-    path: atual.path || ('hotels/' + k),
+    path: basePath || atual.path || ('hotels/' + k),
     mods, ativo: atual.ativo !== false, criadoEm: atual.criadoEm || Date.now(),
   };
   try {
     await db.ref('config/unidades/' + k).set(rec);
     UNIDADES_CUSTOM[k] = rec; rebuildHotels();
-    logAction(key ? 'Editou unidade' : 'Criou unidade', nome + (frota ? ' · Frota' : ' · ' + ['Planejado', 'Emergencial', 'ASG'].concat(mods.cont ? ['Contagem'] : [], mods.gov ? ['Governança'] : [], mods.inv ? ['Inventário'] : []).join(', ')));
+    logAction(key ? 'Editou unidade' : 'Criou unidade', nome + ' · ' + modsResumo(mods));
     renderUnidadesList();
+    try { const l = document.getElementById('landing'); if (l && !l.classList.contains('hidden')) buildLanding(); } catch (e) {}
   } catch (e) { console.error(e); alert('Não foi possível salvar a unidade.'); }
+}
+async function resetUnidade(key) {
+  const h = HOTELS_BASE.find(x => x.key === key); if (!h) return;
+  if (!confirm('Voltar "' + h.name + '" para a configuração padrão do sistema?')) return;
+  try {
+    await db.ref('config/unidades/' + key).set(null);
+    delete UNIDADES_CUSTOM[key]; rebuildHotels();
+    logAction('Restaurou unidade padrão', h.name);
+    renderUnidadesList();
+    try { const l = document.getElementById('landing'); if (l && !l.classList.contains('hidden')) buildLanding(); } catch (e) {}
+  } catch (e) { console.error(e); alert('Não foi possível restaurar.'); }
 }
 async function deleteUnidade(key) {
   const u = UNIDADES_CUSTOM[key]; if (!u) return;
@@ -1440,26 +1488,26 @@ function validModule(k) {
   // Perfil ativo: só os módulos liberados; se pedir outro, cai no primeiro liberado.
   const lib = modulosLiberados(currentHotel);
   if (lib) return lib.includes(k) ? k : (lib[0] || 'dash');
-  // Sem perfil (master): regras por capacidade da unidade.
-  if (k === 'asg' && hotelInfo().frota) return 'dash';
-  if (k === 'cont' && !hotelInfo().contagem) return 'dash';
-  if (k === 'gov' && !hotelInfo().governanca) return 'dash';
-  if (k === 'inv' && !hotelInfo().inventario) return 'dash';
-  return k;
+  // Sem perfil (master): só os módulos que a unidade tem.
+  const keys = modulosDaUnidade(currentHotel).map(m => m.k);
+  return keys.includes(k) ? k : 'dash';
 }
 
 // Lista de módulos que uma unidade tem (usado no menu e na tela de perfis)
 function modulosDaUnidade(key) {
   const h = HOTELS.find(x => x.key === key) || {};
+  const m = h.mods || baseModsDe(h);
   const mods = [{ k: 'dash', lbl: 'Dashboard' }];
-  if (h.frota) mods.push({ k: 'plan', lbl: 'Serviços' }, { k: 'emrg', lbl: 'Viagem' }, { k: 'gest', lbl: 'Gestão' });
+  if (m.frota) { mods.push({ k: 'plan', lbl: 'Serviços' }, { k: 'emrg', lbl: 'Viagem' }); }
   else {
-    mods.push({ k: 'plan', lbl: 'Planejados' }, { k: 'emrg', lbl: 'Emergencial' }, { k: 'asg', lbl: 'ASG' });
-    if (h.contagem) mods.push({ k: 'cont', lbl: 'Contagem' });
-    if (h.governanca) mods.push({ k: 'gov', lbl: 'Governança' });
-    mods.push({ k: 'gest', lbl: 'Gestão' });
+    if (m.plan) mods.push({ k: 'plan', lbl: 'Planejados' });
+    if (m.emrg) mods.push({ k: 'emrg', lbl: 'Emergencial' });
+    if (m.asg) mods.push({ k: 'asg', lbl: 'ASG' });
+    if (m.cont) mods.push({ k: 'cont', lbl: 'Contagem' });
+    if (m.gov) mods.push({ k: 'gov', lbl: 'Governança' });
   }
-  if (h.inventario) mods.push({ k: 'inv', lbl: 'Inventário' });
+  mods.push({ k: 'gest', lbl: 'Gestão' });
+  if (m.inv) mods.push({ k: 'inv', lbl: 'Inventário' });
   mods.push({ k: 'rel', lbl: 'Relatórios' }, { k: 'cad', lbl: 'Cadastros' }, { k: 'param', lbl: 'Parâmetros' });
   return mods;
 }
