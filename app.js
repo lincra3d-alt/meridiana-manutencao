@@ -1,5 +1,5 @@
 // ─── CONSTANTS ────────────────────────────────────────────────────────────────
-const APP_VERSION = 'v119';
+const APP_VERSION = 'v120';
 const MONTHS_PT = ['Jan','Fev','Mar','Abr','Mai','Jun','Jul','Ago','Set','Out','Nov','Dez'];
 const PRIO_CYCLE = ['ALTA','MEDIA','BAIXA'];
 const ST_CYCLE   = ['INDENTIFICADO','ANDAMENTO','CONCLUIDO'];
@@ -559,22 +559,32 @@ function computeKPIs() {
 // ─── ÁREA ADMINISTRATIVA (visão do grupo) ───────────────────────────────────────
 let adminData = {}, adminMonths = [];
 function openAdminPin() {
+  const lg = document.getElementById('admin-login-inp'); if (lg) lg.value = '';
   document.getElementById('admin-pin-inp').value = '';
   document.getElementById('admin-pin-err').textContent = '';
   document.getElementById('ov-admin-pin').classList.add('show');
-  setTimeout(() => document.getElementById('admin-pin-inp').focus(), 120);
+  setTimeout(() => { const e = lg || document.getElementById('admin-pin-inp'); if (e) e.focus(); }, 120);
 }
 function closeAdminPin() { document.getElementById('ov-admin-pin').classList.remove('show'); }
 
 async function enterAdminArea() {
+  const loginEl = document.getElementById('admin-login-inp');
   const inp = document.getElementById('admin-pin-inp');
   const err = document.getElementById('admin-pin-err');
+  const login = (loginEl ? loginEl.value.trim() : '').toLowerCase();
   const senha = inp.value.trim();
   if (!senha) return;
   try {
     ensureApp();
     if (authReady) await authReady;
-    if (!(await checkMaster(senha))) { err.textContent = 'Senha master incorreta.'; inp.value = ''; inp.focus(); return; }
+    let ok = false;
+    // 1) login + senha de admin (config/adminLogin + config/adminSenha)
+    const aLogin = (await db.ref('config/adminLogin').once('value')).val();
+    const aHash = (await db.ref('config/adminSenha').once('value')).val();
+    if (aLogin && aHash && login === String(aLogin).toLowerCase() && (await sha256(senha)) === aHash) ok = true;
+    // 2) senha master da diretoria (chave de emergência, entra mesmo sem login)
+    if (!ok && (await checkMaster(senha))) ok = true;
+    if (!ok) { err.textContent = 'Login ou senha incorretos.'; inp.value = ''; inp.focus(); return; }
   } catch (e) { console.error(e); err.textContent = 'Erro ao validar. Tente novamente.'; return; }
   localStorage.setItem('mtnc_master', '1');
   closeAdminPin();

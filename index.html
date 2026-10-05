@@ -95,8 +95,9 @@
   <div class="modal" style="width:360px">
     <h3>🔐 Área Administrativa</h3>
     <div class="and-wrap" style="text-align:center">
-      <p class="modview-note" style="margin-bottom:14px">Acesso exclusivo da diretoria. Informe a senha master.</p>
-      <input class="pin-input" id="admin-pin-inp" type="password" inputmode="numeric" placeholder="Senha master" autocomplete="off" onkeydown="if(event.key==='Enter')enterAdminArea()">
+      <p class="modview-note" style="margin-bottom:14px">Acesso exclusivo da diretoria. Informe login e senha.</p>
+      <input class="pin-input" id="admin-login-inp" type="text" placeholder="Login" autocomplete="off" style="margin-bottom:8px" onkeydown="if(event.key==='Enter')document.getElementById('admin-pin-inp').focus()">
+      <input class="pin-input" id="admin-pin-inp" type="password" placeholder="Senha" autocomplete="off" onkeydown="if(event.key==='Enter')enterAdminArea()">
       <div class="pin-err" id="admin-pin-err"></div>
     </div>
     <div class="mactions">
@@ -863,6 +864,6 @@
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.2/Sortable.min.js"></script>
-<script src="app.js?v=119"></script>
+<script src="app.js?v=120"></script>
 </body>
 </html>
