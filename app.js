@@ -1,5 +1,5 @@
 // ─── CONSTANTS ────────────────────────────────────────────────────────────────
-const APP_VERSION = 'v120';
+const APP_VERSION = 'v121';
 const MONTHS_PT = ['Jan','Fev','Mar','Abr','Mai','Jun','Jul','Ago','Set','Out','Nov','Dez'];
 const PRIO_CYCLE = ['ALTA','MEDIA','BAIXA'];
 const ST_CYCLE   = ['INDENTIFICADO','ANDAMENTO','CONCLUIDO'];
@@ -558,6 +558,7 @@ function computeKPIs() {
 
 // ─── ÁREA ADMINISTRATIVA (visão do grupo) ───────────────────────────────────────
 let adminData = {}, adminMonths = [];
+function isOwner() { try { return localStorage.getItem('mtnc_owner') === '1'; } catch (e) { return false; } }
 function openAdminPin() {
   const lg = document.getElementById('admin-login-inp'); if (lg) lg.value = '';
   document.getElementById('admin-pin-inp').value = '';
@@ -577,16 +578,18 @@ async function enterAdminArea() {
   try {
     ensureApp();
     if (authReady) await authReady;
-    let ok = false;
-    // 1) login + senha de admin (config/adminLogin + config/adminSenha)
+    let ok = false, owner = false;
+    // 1) login + senha de dono (config/adminLogin + config/adminSenha) → acesso total, incluindo a programação
     const aLogin = (await db.ref('config/adminLogin').once('value')).val();
     const aHash = (await db.ref('config/adminSenha').once('value')).val();
-    if (aLogin && aHash && login === String(aLogin).toLowerCase() && (await sha256(senha)) === aHash) ok = true;
-    // 2) senha master da diretoria (chave de emergência, entra mesmo sem login)
+    if (aLogin && aHash && login === String(aLogin).toLowerCase() && (await sha256(senha)) === aHash) { ok = true; owner = true; }
+    // 2) senha master da diretoria (acesso a tudo, MENOS a programação)
     if (!ok && (await checkMaster(senha))) ok = true;
     if (!ok) { err.textContent = 'Login ou senha incorretos.'; inp.value = ''; inp.focus(); return; }
+    if (owner) localStorage.setItem('mtnc_owner', '1'); else localStorage.removeItem('mtnc_owner');
   } catch (e) { console.error(e); err.textContent = 'Erro ao validar. Tente novamente.'; return; }
   localStorage.setItem('mtnc_master', '1');
+  try { const bu = document.getElementById('btn-unidades'); if (bu) bu.style.display = isOwner() ? '' : 'none'; } catch (e) {}
   closeAdminPin();
   // esconde login e seleção de unidade para a Área Admin não ficar atrás deles
   hideLogin();
@@ -615,6 +618,7 @@ function unidadeSlug(nome) {
     .replace(/[^a-z0-9]+/g, '_').replace(/^_+|_+$/g, '').slice(0, 40) || ('unidade_' + Date.now().toString(36));
 }
 async function openUnidades() {
+  if (!isOwner()) { alert('A programação (criar/editar unidades) é exclusiva do proprietário.'); return; }
   ensureApp(); if (authReady) await authReady;
   try { const v = (await db.ref('config/unidades').once('value')).val(); UNIDADES_CUSTOM = (v && typeof v === 'object' && !Array.isArray(v)) ? v : {}; } catch (e) { UNIDADES_CUSTOM = {}; }
   rebuildHotels();
@@ -4591,7 +4595,7 @@ function pinCancel() { finishUnlock(false); }
 
 function clearAccess() {
   // limpa só os marcadores de acesso (mantém os backups locais mtnc_bkp_* e o tema)
-  ['mtnc_master', 'mtnc_profile', 'mtnc_last_hotel'].forEach(k => { try { localStorage.removeItem(k); } catch (e) {} });
+  ['mtnc_master', 'mtnc_owner', 'mtnc_profile', 'mtnc_last_hotel'].forEach(k => { try { localStorage.removeItem(k); } catch (e) {} });
   try { Object.keys(localStorage).forEach(k => { if (k.indexOf('mtnc_unlocked_') === 0) localStorage.removeItem(k); }); } catch (e) {}
   try { Object.keys(sessionStorage).forEach(k => { if (k.indexOf('mtnc_') === 0) sessionStorage.removeItem(k); }); } catch (e) {}
 }
