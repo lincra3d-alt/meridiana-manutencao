@@ -221,6 +221,24 @@ header{background:var(--s1);border-bottom:1px solid var(--border);padding:13px 2
 .uni-chks input{width:auto}
 .uni-frota{display:flex;align-items:center;gap:8px;font-size:13px;color:var(--text);cursor:pointer}
 .uni-frota input{width:auto}
+/* Cadastro Governança: abas Itens/Quartos */
+.govcad-tabs{display:flex;gap:8px;margin:10px 0 4px;border-bottom:1px solid var(--border)}
+.govcad-tab{background:none;border:none;border-bottom:2px solid transparent;color:var(--muted2);font-family:inherit;font-size:13px;padding:8px 10px;cursor:pointer}
+.govcad-tab.active{color:var(--gold2);border-bottom-color:var(--gold)}
+.gq-bloco{background:var(--s4);border:1px solid var(--border2);border-radius:10px;padding:12px;margin-bottom:12px}
+.gq-bhead{display:flex;gap:8px;align-items:center;margin-bottom:10px}
+.gq-bnome{flex:1;background:var(--s1);border:1px solid var(--border2);border-radius:7px;padding:7px 10px;color:var(--text);font-family:inherit;font-size:13.5px;font-weight:600;outline:none}
+.gq-bnome:focus{border-color:var(--gold)}
+.gq-quartos{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:10px}
+.gq-q{display:inline-flex;align-items:center;gap:5px;background:var(--s1);border:1px solid var(--border2);border-radius:6px;padding:4px 6px 4px 9px;font-size:12.5px;color:var(--text)}
+.gq-q button{background:none;border:none;color:var(--muted);font-size:12px;cursor:pointer;padding:0 2px;border-radius:4px}
+.gq-q button:hover{color:var(--red2,#ff7a7e)}
+.gq-add{display:flex;gap:6px;align-items:center;flex-wrap:wrap}
+.gq-add input{flex:1;min-width:120px;background:var(--s1);border:1px solid var(--border2);border-radius:7px;padding:7px 10px;color:var(--text);font-family:inherit;font-size:13px;outline:none}
+.gq-add input:focus{border-color:var(--gold)}
+.gq-addbloco{display:flex;gap:8px;align-items:center;margin-top:6px}
+.gq-addbloco input{flex:1;background:var(--s4);border:1px solid var(--border2);border-radius:8px;padding:9px 11px;color:var(--text);font-family:inherit;font-size:13px;outline:none}
+.gq-addbloco input:focus{border-color:var(--gold)}
 /* Modal mínimos do enxoval */
 .govmin-apply{display:flex;align-items:center;gap:8px;flex-wrap:wrap;background:var(--s4);border:1px solid var(--border);border-radius:9px;padding:9px 11px;margin:6px 0 14px;font-size:11.5px;color:var(--muted2)}
 .govmin-headrow{display:grid;grid-template-columns:1fr 130px 76px;gap:10px;font-size:9.5px;letter-spacing:.3px;text-transform:uppercase;color:var(--muted);font-weight:600;padding:0 2px 6px;border-bottom:1px solid var(--border)}

@@ -109,12 +109,14 @@ const HOTELS = {
   'carros':{name:'Carros',path:'hotels/carros'}
 };
 const TIPOS=[{k:'contagem',l:'Contagem (mensal)'},{k:'inventario',l:'Inventário (semestral)'}];
-const BLOCOS=[
+const BLOCOS_DEFAULT=[
   {k:'b1',nome:'Bloco 1',quartos:['2','3','4','5','6','7','8','9','10','31','32']},
   {k:'b2',nome:'Bloco 2',quartos:['20','21','22','23','24','25','26','27','28','29','30']},
   {k:'b3',nome:'Bloco 3',quartos:['1','11','12','13','14','15','16','17','18','19','41']},
   {k:'b4',nome:'Bloco 4',quartos:['33','34','35','36','37','38','39','40']},
 ];
+let BLOCOS_UNIT=null; // vem de governancaBlocos da unidade
+function BLOCOS_(){ return Array.isArray(BLOCOS_UNIT)?BLOCOS_UNIT:(hotelKey==='costa_sol'?BLOCOS_DEFAULT:[]); }
 const ESPECIAIS=[{k:'governanca',nome:'Governança (rouparia)'},{k:'danificados',nome:'Danificados'}];
 const ENXOVAL=['T. ROSTO','T. BANHO','T. PISO','T. PRAIA','SAIA CASAL','SAIA SOLTEIRO','LENÇOL CASAL','LENÇOL SOLTEIRO','COLCHA PIQUET C','COLCHA PIQUET S','PESEIRA CASAL','PESEIRA SOLTEIRO','CAPA DE TRAV.','FRONHAS PIQUET','FRONHAS ALGODÃO','TRAVESSEIRO','ALMOFADAS','MANTA SOLTEIRO','EDREDOM CASAL','MANTA CASAL','ROUPÃO','EDREDOM SOLTEIRO'];
 const INVENTARIO_EXTRA=['BERÇO','TOALHA DE MESA','RODO','VASSOURA','PÁ'];
@@ -151,7 +153,7 @@ function montarTipos(){
 function montarBlocos(tipo){
   const bsel=document.getElementById('f-bloco');
   const especiais = tipo ? ESPECIAIS : [];
-  bsel.innerHTML='<option value="">Selecione…</option>'+BLOCOS.map(b=>`<option value="${b.k}">${b.nome}</option>`).join('')+especiais.map(e=>`<option value="${e.k}">${e.nome}</option>`).join('');
+  bsel.innerHTML='<option value="">Selecione…</option>'+BLOCOS_().map(b=>`<option value="${b.k}">${b.nome}</option>`).join('')+especiais.map(e=>`<option value="${e.k}">${e.nome}</option>`).join('');
 }
 function onTipo(){
   const tipo=document.getElementById('f-tipo').value;
@@ -168,7 +170,7 @@ function onBloco(){
   const esp=ESPECIAIS.find(e=>e.k===bk);
   if(esp||!bk){ qfield.style.display=esp?'none':''; qsel.innerHTML='<option value="geral">geral</option>'; if(!bk){qfield.style.display='';qsel.innerHTML='<option value="">—</option>';} }
   else {
-    const b=BLOCOS.find(x=>x.k===bk);
+    const b=BLOCOS_().find(x=>x.k===bk);
     qfield.style.display='';
     qsel.innerHTML='<option value="">Selecione…</option>'+b.quartos.map(q=>`<option value="${q}">Quarto ${q}</option>`).join('');
   }
@@ -218,7 +220,7 @@ function checkExisting(tipo, lk){
 function nomeLocal(){
   const bk=document.getElementById('f-bloco').value;
   const esp=ESPECIAIS.find(e=>e.k===bk); if(esp) return esp.nome;
-  const b=BLOCOS.find(x=>x.k===bk); const q=document.getElementById('f-quarto').value;
+  const b=BLOCOS_().find(x=>x.k===bk); const q=document.getElementById('f-quarto').value;
   return b?(b.nome+' · Quarto '+q):bk;
 }
 
@@ -251,7 +253,11 @@ async function enviar(){
   finally{ btn.disabled=false; btn.textContent='Enviar'; }
 }
 
-authReady.then(()=>db.ref(HOTEL.path+'/governancaItens').once('value'))
+authReady
+  .then(()=>db.ref(HOTEL.path+'/governancaBlocos').once('value'))
+  .then(snap=>{const b=snap.val();BLOCOS_UNIT=Array.isArray(b)?b:null;})
+  .catch(()=>{BLOCOS_UNIT=null;})
+  .then(()=>db.ref(HOTEL.path+'/governancaItens').once('value'))
   .then(snap=>{const v=snap.val();GOV_ITENS=(v&&typeof v==='object'&&!Array.isArray(v))?v:{};montarTipos();})
   .catch(e=>{console.error(e);GOV_ITENS={};montarTipos();});
 </script>

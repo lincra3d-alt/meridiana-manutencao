@@ -1,5 +1,5 @@
 // ─── CONSTANTS ────────────────────────────────────────────────────────────────
-const APP_VERSION = 'v122';
+const APP_VERSION = 'v123';
 const MONTHS_PT = ['Jan','Fev','Mar','Abr','Mai','Jun','Jul','Ago','Set','Out','Nov','Dez'];
 const PRIO_CYCLE = ['ALTA','MEDIA','BAIXA'];
 const ST_CYCLE   = ['INDENTIFICADO','ANDAMENTO','CONCLUIDO'];
@@ -90,13 +90,19 @@ function govItensDefault(tipo) {
   if (tipo === 'inventario') return [...GOV_ENXOVAL, ...GOV_INVENTARIO_EXTRA];
   return [...GOV_ENXOVAL];
 }
-// Blocos e quartos pré-definidos + locais especiais (rouparia e danificados)
+// Blocos padrão da Costa do Sol (usados quando a unidade não tem blocos próprios cadastrados)
 const GOV_BLOCOS = [
   { k: 'b1', nome: 'Bloco 1', quartos: ['2','3','4','5','6','7','8','9','10','31','32'] },
   { k: 'b2', nome: 'Bloco 2', quartos: ['20','21','22','23','24','25','26','27','28','29','30'] },
   { k: 'b3', nome: 'Bloco 3', quartos: ['1','11','12','13','14','15','16','17','18','19','41'] },
   { k: 'b4', nome: 'Bloco 4', quartos: ['33','34','35','36','37','38','39','40'] },
 ];
+let GOV_BLOCOS_UNIT = null; // blocos da unidade atual (nó governancaBlocos); null = usar o padrão
+// Blocos efetivos da unidade: os cadastrados; se não houver, Costa do Sol usa o padrão e as demais começam vazias.
+function govBlocos() {
+  if (Array.isArray(GOV_BLOCOS_UNIT)) return GOV_BLOCOS_UNIT;
+  return currentHotel === 'costa_sol' ? GOV_BLOCOS : [];
+}
 const GOV_ESPECIAIS = [
   { k: 'governanca',  nome: 'Governança (rouparia)', ic: '🧺' },
   { k: 'danificados', nome: 'Danificados',           ic: '⚠' },
@@ -121,7 +127,7 @@ function govTipoLabel(k) { return govTipo(k).l; }
 function govEspeciaisDe(tipo) { return GOV_ESPECIAIS; }
 function govLocais(tipo) {
   const arr = [];
-  GOV_BLOCOS.forEach(b => b.quartos.forEach(q => arr.push(b.k + '__' + q)));
+  govBlocos().forEach(b => b.quartos.forEach(q => arr.push(b.k + '__' + q)));
   govEspeciaisDe(tipo).forEach(e => arr.push(e.k + '__geral'));
   return arr;
 }
@@ -131,7 +137,7 @@ function govLocalTotal(rec) { if (!rec) return 0; if (typeof rec.total === 'numb
 function govLocalEspecial(localKey) { return GOV_ESPECIAIS.find(e => localKey === e.k + '__geral'); }
 function govLocalLabel(localKey) {
   const esp = govLocalEspecial(localKey); if (esp) return esp.nome;
-  const [bk, qt] = localKey.split('__'); const b = GOV_BLOCOS.find(x => x.k === bk);
+  const [bk, qt] = localKey.split('__'); const b = govBlocos().find(x => x.k === bk);
   return b ? (b.nome + ' · Quarto ' + qt) : localKey;
 }
 function govTotalGeral(tipo) { const d = GOV_DADOS[tipo] || {}; return Object.keys(d).reduce((s, k) => s + govLocalTotal(d[k]), 0); }
@@ -142,8 +148,8 @@ function govAggItensFiltro(tipo, filtro) {
   const d = GOV_DADOS[tipo] || {}; const map = {};
   Object.keys(d).forEach(k => {
     let ok;
-    if (filtro === 'tudo') ok = GOV_BLOCOS.some(b => k.startsWith(b.k + '__')) || k === 'governanca__geral'; // blocos + rouparia, sem danificados
-    else if (filtro === 'all' || !filtro) ok = GOV_BLOCOS.some(b => k.startsWith(b.k + '__'));                // só os quartos
+    if (filtro === 'tudo') ok = govBlocos().some(b => k.startsWith(b.k + '__')) || k === 'governanca__geral'; // blocos + rouparia, sem danificados
+    else if (filtro === 'all' || !filtro) ok = govBlocos().some(b => k.startsWith(b.k + '__'));                // só os quartos
     else ok = k.startsWith(filtro + '__');                                                                    // um bloco
     if (!ok) return;
     (d[k].itens || []).forEach(it => { if (it && it.n) map[it.n] = (map[it.n] || 0) + (Number(it.q) || 0); });
@@ -336,6 +342,7 @@ function listenData() {
         const newGovDados = (val.governanca && typeof val.governanca === 'object' && !Array.isArray(val.governanca)) ? val.governanca : {};
         const newGovRec = Array.isArray(val.governancaRecebidos) ? val.governancaRecebidos : [];
         const newGovMin = (val.governancaMinimos && typeof val.governancaMinimos === 'object' && !Array.isArray(val.governancaMinimos)) ? val.governancaMinimos : {};
+        const newGovBlocos = Array.isArray(val.governancaBlocos) ? val.governancaBlocos : null;
 
         const changed = JSON.stringify(newMonths) !== JSON.stringify(MONTHS)
                      || JSON.stringify(newData)   !== JSON.stringify(DATA)
@@ -346,7 +353,8 @@ function listenData() {
                      || JSON.stringify(newGovItens)   !== JSON.stringify(GOV_ITENS)
                      || JSON.stringify(newGovDados)   !== JSON.stringify(GOV_DADOS)
                      || JSON.stringify(newGovRec)     !== JSON.stringify(GOV_RECEBIDOS)
-                     || JSON.stringify(newGovMin)     !== JSON.stringify(GOV_MINIMOS);
+                     || JSON.stringify(newGovMin)     !== JSON.stringify(GOV_MINIMOS)
+                     || JSON.stringify(newGovBlocos)  !== JSON.stringify(GOV_BLOCOS_UNIT);
         INVENTARIO = newInv;
         CONTAGEM_ITENS = newContItens;
         CONTAGENS = newContagens;
@@ -354,6 +362,7 @@ function listenData() {
         GOV_DADOS = newGovDados;
         GOV_RECEBIDOS = newGovRec;
         GOV_MINIMOS = newGovMin;
+        GOV_BLOCOS_UNIT = newGovBlocos;
         const lixPurged = newLix.length !== (Array.isArray(val.lixeira) ? val.lixeira : []).length;
         LIXEIRA = newLix;
         LOG = Array.isArray(val.log) ? val.log : [];
@@ -1573,7 +1582,7 @@ function buildViews() {
       <p class="modview-note">Gerencie as listas usadas nos serviços desta unidade. Os itens padrão não podem ser removidos.</p>
       <div class="rep-bars">
         ${cats.map(c => `<button class="rep-bar" onclick="openCad('${c.k}')"><div class="rep-bar-t">${c.l}</div><div class="rep-bar-d">Adicionar ou remover itens.</div></button>`).join('')}
-        ${hotelInfo().governanca ? `<button class="rep-bar" onclick="openGovItens()"><div class="rep-bar-t">🧺 Itens Governança</div><div class="rep-bar-d">Cadastrar ou remover itens do enxoval (contagem e inventário).</div></button>` : ''}
+        ${hotelInfo().governanca ? `<button class="rep-bar" onclick="openGovItens()"><div class="rep-bar-t">🧺 Governança</div><div class="rep-bar-d">Itens do enxoval e os blocos/quartos desta unidade.</div></button>` : ''}
       </div>`;
   }
   const par = document.getElementById('param-inner');
@@ -2949,7 +2958,7 @@ function switchHotel(key) {
   clearTimeout(saveDebounce);
   currentHotel = key;
   localStorage.setItem('currentHotel', key);
-  MONTHS = []; DATA = []; INVENTARIO = []; LIXEIRA = []; LOG = []; SERVICOS = [...baseServicos()]; DESTINOS = [...VIAGEM_DESTINOS]; VEICULOS = [...CARROS_VEICULOS]; GERADORES = [...CARROS_GERADORES]; ASGSERV = [...ASG_SERVICOS]; REGRAS = []; CONTAGEM_ITENS = {}; CONTAGENS = []; GOV_ITENS = {}; GOV_DADOS = {}; GOV_RECEBIDOS = []; GOV_MINIMOS = {};
+  MONTHS = []; DATA = []; INVENTARIO = []; LIXEIRA = []; LOG = []; SERVICOS = [...baseServicos()]; DESTINOS = [...VIAGEM_DESTINOS]; VEICULOS = [...CARROS_VEICULOS]; GERADORES = [...CARROS_GERADORES]; ASGSERV = [...ASG_SERVICOS]; REGRAS = []; CONTAGEM_ITENS = {}; CONTAGENS = []; GOV_ITENS = {}; GOV_DADOS = {}; GOV_RECEBIDOS = []; GOV_MINIMOS = {}; GOV_BLOCOS_UNIT = null;
   activeMonth = 0;
   activeModule = 'dash';
   document.getElementById('tabs').innerHTML = '';
@@ -3272,7 +3281,7 @@ function govRecebidosCard(tipo) {
 // Grade de blocos com quartos + locais especiais
 function renderGovLocais(tipo) {
   const d = GOV_DADOS[tipo] || {};
-  const blocos = GOV_BLOCOS.map(b => {
+  const blocos = govBlocos().map(b => {
     const chips = b.quartos.map(q => {
       const lk = b.k + '__' + q, rec = d[lk], cont = !!rec;
       return `<button class="gov-quarto${cont ? ' feito' : ''}" onclick="openGovLocal('${tipo}','${lk}',false)"><span class="gov-q-n">${q}</span></button>`;
@@ -3289,7 +3298,7 @@ function renderGovLocais(tipo) {
 
 // Gráfico: total por bloco (e locais especiais)
 function govChartBlocos(tipo) {
-  const items = GOV_BLOCOS.map(b => ({ l: b.nome.replace('Bloco ', 'B'), v: govBlocoTotal(tipo, b.k) }));
+  const items = govBlocos().map(b => ({ l: b.nome.replace('Bloco ', 'B'), v: govBlocoTotal(tipo, b.k) }));
   govEspeciaisDe(tipo).forEach(e => { const rec = govLocalRec(tipo, e.k + '__geral'); items.push({ l: e.k === 'governanca' ? 'Roup.' : 'Danif.', v: rec ? govLocalTotal(rec) : 0 }); });
   const max = Math.max(1, ...items.map(x => x.v));
   const n = items.length, slot = 68, W = Math.max(300, n * slot + 20), H = 190, pad = 30, bw = Math.min(42, slot - 24);
@@ -3312,7 +3321,7 @@ function govChartItens(tipo) {
   const isAll = (f === 'all'), isTudo = (f === 'tudo');
   const opts = `<option value="all"${isAll ? ' selected' : ''}>Todos os blocos</option>` +
     `<option value="tudo"${isTudo ? ' selected' : ''}>Tudo (blocos + rouparia)</option>` +
-    GOV_BLOCOS.map(b => `<option value="${b.k}"${f === b.k ? ' selected' : ''}>${b.nome}</option>`).join('');
+    govBlocos().map(b => `<option value="${b.k}"${f === b.k ? ' selected' : ''}>${b.nome}</option>`).join('');
   const sel = `<select class="gov-item-sel" onchange="setGovItemFiltro(this.value)">${opts}</select>`;
   const head = `<div class="gov-card-t gov-item-hd"><span>Enxoval por item</span>${sel}</div>`;
   const agg = govAggItensFiltro(tipo, f);
@@ -3412,15 +3421,115 @@ function renderGovHist() {
 
 // ── Itens da Governança (Cadastros): catálogo do enxoval por tipo ──
 let govItensEdit = null, govItensTipoView = 'contagem', govItemEditing = -1;
+let govCadTab = 'itens', govBlocosEdit = null;
 function openGovItens() {
   govItensTipoView = 'contagem';
   govItemEditing = -1;
   govItensEdit = { contagem: [...govItensDe('contagem')], inventario: [...govItensDe('inventario')] };
-  renderGovItens();
+  govBlocosEdit = JSON.parse(JSON.stringify(govBlocos()));
+  govCadTab = 'itens';
+  renderGovCad();
   document.getElementById('ov-govitens').classList.add('show');
-  setTimeout(() => { const e = document.getElementById('govitens-new'); if (e) e.focus(); }, 80);
 }
-function closeGovItens() { document.getElementById('ov-govitens').classList.remove('show'); govItensEdit = null; }
+function closeGovItens() { document.getElementById('ov-govitens').classList.remove('show'); govItensEdit = null; govBlocosEdit = null; }
+function setGovCadTab(t) { govCadTab = (t === 'quartos' ? 'quartos' : 'itens'); renderGovCad(); }
+function renderGovCad() {
+  document.getElementById('govcad-head').innerHTML = `
+    <h3 class="cont-h4" style="margin-top:0">🧺 Governança · ${esc(hotelInfo().name)}</h3>
+    <div class="govcad-tabs">
+      <button class="govcad-tab${govCadTab === 'itens' ? ' active' : ''}" onclick="setGovCadTab('itens')">📦 Itens</button>
+      <button class="govcad-tab${govCadTab === 'quartos' ? ' active' : ''}" onclick="setGovCadTab('quartos')">🚪 Quartos</button>
+    </div>`;
+  if (govCadTab === 'itens') renderGovCadItens(); else renderGovCadQuartos();
+}
+function renderGovCadItens() {
+  document.getElementById('govcad-content').innerHTML = `
+    <p class="cont-hint">Itens do enxoval. Contagem (mensal) e Inventário (semestral) têm listas separadas.</p>
+    <div id="govitens-tabs" class="govit-tabs">
+      <button class="govit-tab" data-t="contagem" onclick="setGovItensTipo('contagem')">Contagem (mensal)</button>
+      <button class="govit-tab" data-t="inventario" onclick="setGovItensTipo('inventario')">Inventário (semestral)</button>
+    </div>
+    <div class="govit-add">
+      <input id="govitens-new" placeholder="Novo item (ex.: TOALHA DE MESA)" onkeydown="if(event.key==='Enter')addGovItem()">
+      <button class="btn btn-ghost btn-xs" onclick="addGovItem()">+ Adicionar</button>
+    </div>
+    <div class="govit-head"><span>Itens</span><span id="govitens-count"></span></div>
+    <div id="govitens-list"></div>`;
+  renderGovItens();
+}
+// ── Quartos por unidade (blocos e quartos) ──
+function novaBlocoKey() {
+  const used = new Set((govBlocosEdit || []).map(b => b.k));
+  let k; do { k = 'blk' + Math.random().toString(36).slice(2, 7); } while (used.has(k));
+  return k;
+}
+function renderGovCadQuartos() {
+  const blocos = (govBlocosEdit || []).map((b, bi) => `
+    <div class="gq-bloco">
+      <div class="gq-bhead">
+        <input class="gq-bnome" value="${esc(b.nome || '')}" onchange="govBlocoNome(${bi}, this.value)" placeholder="Nome do bloco">
+        <button class="btn btn-ghost btn-xs" onclick="removeGovBloco(${bi})" title="Remover bloco">🗑</button>
+      </div>
+      <div class="gq-quartos">
+        ${(b.quartos || []).map((q, qi) => `<span class="gq-q">${esc(q)}<button onclick="removeGovQuarto(${bi},${qi})" title="Remover">✕</button></span>`).join('') || '<span class="cont-hint">sem quartos</span>'}
+      </div>
+      <div class="gq-add">
+        <input id="gq-newq-${bi}" placeholder="Quarto (ex.: 101)" onkeydown="if(event.key==='Enter')addGovQuarto(${bi})">
+        <button class="btn btn-ghost btn-xs" onclick="addGovQuarto(${bi})">+ quarto</button>
+        <button class="btn btn-ghost btn-xs" onclick="addGovQuartoRange(${bi})" title="Adicionar um intervalo de números">+ intervalo</button>
+      </div>
+    </div>`).join('');
+  document.getElementById('govcad-content').innerHTML = `
+    <p class="cont-hint">Monte os blocos e quartos desta unidade. <b>Rouparia</b> e <b>Danificados</b> já existem por padrão. Para "tudo junto", crie um bloco só e coloque todos os quartos nele.</p>
+    ${blocos || '<p class="cont-hint" style="padding:6px 0">Nenhum bloco ainda. Adicione abaixo.</p>'}
+    <div class="gq-addbloco">
+      <input id="gq-newbloco" placeholder="Nome do novo bloco (ex.: Bloco A, Chalés...)" onkeydown="if(event.key==='Enter')addGovBloco()">
+      <button class="btn btn-gold btn-xs" onclick="addGovBloco()">➕ Adicionar bloco</button>
+    </div>`;
+}
+function govBlocoNome(bi, val) { if (govBlocosEdit[bi]) govBlocosEdit[bi].nome = (val || '').trim(); }
+function addGovBloco() {
+  const inp = document.getElementById('gq-newbloco'); const nome = (inp.value || '').trim(); if (!nome) return;
+  govBlocosEdit.push({ k: novaBlocoKey(), nome, quartos: [] });
+  renderGovCadQuartos();
+}
+function removeGovBloco(bi) {
+  const b = govBlocosEdit[bi]; if (!b) return;
+  if (!confirm('Remover o bloco "' + (b.nome || '') + '"? Os quartos dele saem da lista (as contagens já feitas ficam guardadas no banco).')) return;
+  govBlocosEdit.splice(bi, 1); renderGovCadQuartos();
+}
+function addGovQuarto(bi) {
+  const inp = document.getElementById('gq-newq-' + bi); const q = (inp.value || '').trim(); if (!q) return;
+  if (!govBlocosEdit[bi].quartos.includes(q)) govBlocosEdit[bi].quartos.push(q);
+  renderGovCadQuartos();
+  setTimeout(() => { const e = document.getElementById('gq-newq-' + bi); if (e) e.focus(); }, 30);
+}
+function addGovQuartoRange(bi) {
+  const de = parseInt(prompt('Primeiro número do intervalo:'), 10);
+  if (!isFinite(de)) return;
+  const ate = parseInt(prompt('Último número do intervalo:'), 10);
+  if (!isFinite(ate) || ate < de) return;
+  for (let n = de; n <= ate; n++) { const s = String(n); if (!govBlocosEdit[bi].quartos.includes(s)) govBlocosEdit[bi].quartos.push(s); }
+  renderGovCadQuartos();
+}
+function removeGovQuarto(bi, qi) { govBlocosEdit[bi].quartos.splice(qi, 1); renderGovCadQuartos(); }
+async function salvarGovCad() {
+  // itens
+  const novo = {};
+  ['contagem', 'inventario'].forEach(t => { const a = (govItensEdit[t] || []).map(s => String(s).trim()).filter(Boolean); if (a.length) novo[t] = a; });
+  // blocos
+  const blocos = (govBlocosEdit || []).filter(b => b && b.k).map(b => ({ k: b.k, nome: (b.nome || b.k).trim(), quartos: (b.quartos || []).map(q => String(q).trim()).filter(Boolean) }));
+  try {
+    if (db) {
+      await db.ref(`${hotelPath()}/governancaItens`).set(Object.keys(novo).length ? novo : null);
+      await db.ref(`${hotelPath()}/governancaBlocos`).set(blocos.length ? blocos : null);
+    }
+    GOV_ITENS = novo; GOV_BLOCOS_UNIT = blocos;
+    logAction('Editou cadastro Governança', hotelInfo().name + ' · ' + blocos.length + ' bloco(s)');
+    closeGovItens();
+    if (activeModule === 'gov') renderGovMain();
+  } catch (e) { console.error(e); alert('Não foi possível salvar.'); }
+}
 function setGovItensTipo(t) { govItensTipoView = (t === 'inventario' ? 'inventario' : 'contagem'); govItemEditing = -1; renderGovItens(); }
 function renderGovItens() {
   const t = govItensTipoView;
@@ -3629,7 +3738,12 @@ async function removeGovItemLocal(idx) {
 
 // Impressão da Governança: primeiro escolhe o que imprimir, depois gera
 let govPrintTipo = null;
-function imprimirGov(tipo) { govPrintTipo = tipo; document.getElementById('ov-govprint').classList.add('show'); }
+function imprimirGov(tipo) {
+  govPrintTipo = tipo;
+  const cont = document.getElementById('govprint-blocos');
+  if (cont) cont.innerHTML = govBlocos().map(b => `<label><input type="checkbox" class="gp-chk" value="${esc(b.k)}"> ${esc(b.nome)}</label>`).join('') || '<p class="cont-hint" style="grid-column:1/-1;margin:0">Esta unidade ainda não tem blocos cadastrados.</p>';
+  document.getElementById('ov-govprint').classList.add('show');
+}
 function closeGovPrint() { document.getElementById('ov-govprint').classList.remove('show'); }
 // linhas de itens (q>0) de um local
 function govLinhasLocalImp(tipo, key) {
@@ -3663,7 +3777,7 @@ function govSecaoImp(tipo, escopo) {
     const tot = govLocalRec(tipo, k) ? ' · ' + govLocalTotal(govLocalRec(tipo, k)) + ' peças' : '';
     return `<h2>${esc(govLocalLabel(k))}${tot}</h2>${tbl(inner, 'Item')}`;
   }
-  const b = GOV_BLOCOS.find(x => x.k === escopo); if (!b) return '';
+  const b = govBlocos().find(x => x.k === escopo); if (!b) return '';
   const det = govDetalhadoBloco(tipo, b) || '<tr><td colspan="2" style="color:#777">Nenhum quarto contado.</td></tr>';
   const agg = govAggItensFiltro(tipo, b.k);
   const sub = govItensDe(tipo).filter(n => (agg[n] || 0) > 0).map(n => `<tr><td>${esc(n)}</td><td style="text-align:right">${agg[n]}</td></tr>`).join('');
@@ -3680,7 +3794,7 @@ function govPrintSelecionados() {
   closeGovPrint();
   const t = govTipo(tipo);
   // ordem fixa, independente da ordem de clique
-  const ordem = ['b1', 'b2', 'b3', 'b4', 'rouparia', 'danificados', 'total'];
+  const ordem = govBlocos().map(b => b.k).concat('rouparia', 'danificados', 'total');
   const corpo = ordem.filter(e => escopos.includes(e)).map(e => govSecaoImp(tipo, e)).join('<div style="height:10px"></div>');
   const w = window.open('', '_blank'); if (!w) { alert('Permita pop-ups para imprimir.'); return; }
   w.document.write(`<!doctype html><html><head><meta charset="utf-8"><title>${esc(t.l)} Governança</title>
