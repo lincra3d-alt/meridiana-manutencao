@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Gestão de Manutenção · Hotel</title>
 <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@400;600;700&family=Jost:wght@300;400;500;600&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="style.css?v=41">
+<link rel="stylesheet" href="style.css?v=42">
 <style>
 .pdf-chk{display:inline-flex;align-items:center;gap:6px;padding:6px 11px;background:var(--s4);border:1px solid var(--border);border-radius:14px;font-size:11.5px;cursor:pointer;user-select:none;transition:all .15s}
 .pdf-chk:hover{background:var(--s3);border-color:var(--border2)}
@@ -120,6 +120,7 @@
       <select id="admin-month" class="mod-month" onchange="renderAdmin()" title="Mês / Ano"></select>
       <button class="btn btn-ghost btn-xs" onclick="openAdminPins()">🔑 Senhas</button>
       <button class="btn btn-ghost btn-xs" onclick="openPerfis()">👥 Perfis</button>
+      <button class="btn btn-ghost btn-xs" onclick="openUnidades()">🏨 Unidades</button>
       <button class="btn btn-ghost btn-xs" onclick="closeAdminArea()">← Voltar</button>
     </div>
   </div>
@@ -782,6 +783,13 @@
   </div>
 </div>
 
+<div class="ov" id="ov-unidades">
+  <div class="modal" style="width:620px;max-width:96vw;max-height:90vh;padding:0;position:relative;display:flex;flex-direction:column;overflow:hidden">
+    <button class="cont-close" onclick="closeUnidades()" title="Fechar" aria-label="Fechar">✕</button>
+    <div id="unidades-body" style="overflow:auto;padding:22px 22px 26px"></div>
+  </div>
+</div>
+
 <!-- ── MODAL: Recebidos da Governança ── -->
 <div class="ov" id="ov-govrec">
   <div class="modal" style="width:640px;max-width:96vw;max-height:88vh;padding:0;position:relative;display:flex;flex-direction:column;overflow:hidden">
@@ -855,6 +863,6 @@
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.2/Sortable.min.js"></script>
-<script src="app.js?v=118"></script>
+<script src="app.js?v=119"></script>
 </body>
 </html>

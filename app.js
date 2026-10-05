@@ -1,5 +1,5 @@
 // ─── CONSTANTS ────────────────────────────────────────────────────────────────
-const APP_VERSION = 'v118';
+const APP_VERSION = 'v119';
 const MONTHS_PT = ['Jan','Fev','Mar','Abr','Mai','Jun','Jul','Ago','Set','Out','Nov','Dez'];
 const PRIO_CYCLE = ['ALTA','MEDIA','BAIXA'];
 const ST_CYCLE   = ['INDENTIFICADO','ANDAMENTO','CONCLUIDO'];
@@ -178,7 +178,7 @@ function govTotalReal(tipo) {
 function govContados(tipo) { const d = GOV_DADOS[tipo] || {}; return govLocais(tipo).filter(k => d[k]).length; }
 
 // ─── HOTELS ───────────────────────────────────────────────────────────────────
-const HOTELS = [
+const HOTELS_BASE = [
   { key: 'costa_sol',      name: 'Costa do Sol',    tag: 'Boutique Hotel',     icon: '☀',  path: 'hotel_manutencao', governanca: true },
   { key: 'brava_club',     name: 'Brava Club',      tag: 'Hotel Pousada',      icon: '🌊', path: 'hotels/brava_club', contagem: true },
   { key: 'brava_exclusive',name: 'Brava Exclusive', tag: 'Praia da Brava',     icon: '◆',  path: 'hotels/brava_exclusive' },
@@ -188,6 +188,25 @@ const HOTELS = [
     labels: { plan: 'Serviços', planOne: 'Serviço', planIcon: '🔧', emrg: 'Viagem', emrgOne: 'Viagem', emrgIcon: '🚗' },
     servicos: CARROS_SERVICOS, emrgServicos: VIAGEM_DESTINOS, frota: true, veiculos: CARROS_VEICULOS, geradores: CARROS_GERADORES },
 ];
+// Unidades criadas na Área Administrativa (config/unidades no Firebase) + as fixas acima.
+let UNIDADES_CUSTOM = {};
+let HOTELS = HOTELS_BASE.slice();
+function unidadeFromConfig(u) {
+  const h = { key: u.key, name: u.name || u.key, tag: u.tag || '', icon: u.icon || '🏨', path: u.path || ('hotels/' + u.key), custom: true };
+  const m = u.mods || {};
+  if (m.gov) h.governanca = true;
+  if (m.cont) h.contagem = true;
+  if (m.inv) h.inventario = true;
+  if (m.frota) { h.frota = true; h.labels = { plan: 'Serviços', planOne: 'Serviço', planIcon: '🔧', emrg: 'Viagem', emrgOne: 'Viagem', emrgIcon: '🚗' }; h.servicos = CARROS_SERVICOS; h.emrgServicos = VIAGEM_DESTINOS; h.veiculos = CARROS_VEICULOS; h.geradores = CARROS_GERADORES; }
+  return h;
+}
+function rebuildHotels() {
+  const baseKeys = new Set(HOTELS_BASE.map(h => h.key));
+  const extra = Object.values(UNIDADES_CUSTOM || {})
+    .filter(u => u && u.key && u.ativo !== false && !baseKeys.has(u.key))
+    .map(unidadeFromConfig);
+  HOTELS = HOTELS_BASE.concat(extra);
+}
 const DEFAULT_LABELS = { plan: 'Planejados', planOne: 'Planejado', planIcon: '📋', emrg: 'Emergenciais', emrgOne: 'Emergencial', emrgIcon: '⚡' };
 let currentHotel = localStorage.getItem('currentHotel') || 'costa_sol';
 function hotelInfo() { return HOTELS.find(h => h.key === currentHotel) || HOTELS[0]; }
@@ -579,6 +598,119 @@ async function openPerfis() {
   document.getElementById('ov-perfis').classList.add('show');
 }
 function closePerfis() { document.getElementById('ov-perfis').classList.remove('show'); }
+
+// ── UNIDADES (criar/editar unidades na Área Administrativa) ──
+function unidadeSlug(nome) {
+  return (nome || '').toString().toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '')
+    .replace(/[^a-z0-9]+/g, '_').replace(/^_+|_+$/g, '').slice(0, 40) || ('unidade_' + Date.now().toString(36));
+}
+async function openUnidades() {
+  ensureApp(); if (authReady) await authReady;
+  try { const v = (await db.ref('config/unidades').once('value')).val(); UNIDADES_CUSTOM = (v && typeof v === 'object' && !Array.isArray(v)) ? v : {}; } catch (e) { UNIDADES_CUSTOM = {}; }
+  rebuildHotels();
+  renderUnidadesList();
+  document.getElementById('ov-unidades').classList.add('show');
+}
+function closeUnidades() { document.getElementById('ov-unidades').classList.remove('show'); }
+function renderUnidadesList() {
+  const baseKeys = new Set(HOTELS_BASE.map(h => h.key));
+  const fixas = HOTELS_BASE.map(h => `<div class="uni-row"><div class="uni-info"><b>${esc(h.name)}</b><span>${esc(h.tag || '')} · fixa do sistema</span></div><span class="uni-lock">🔒</span></div>`).join('');
+  const custom = Object.values(UNIDADES_CUSTOM || {}).filter(u => u && u.key && !baseKeys.has(u.key))
+    .sort((a, b) => (a.name || '').localeCompare(b.name || ''))
+    .map(u => {
+      const mods = []; const m = u.mods || {};
+      if (m.frota) mods.push('Frota'); else { mods.push('Planejado', 'Emergencial', 'ASG'); if (m.cont) mods.push('Contagem'); if (m.gov) mods.push('Governança'); if (m.inv) mods.push('Inventário'); }
+      return `<div class="uni-row"><div class="uni-info"><b>${u.icon || '🏨'} ${esc(u.name)}${u.ativo === false ? ' <span class="uni-off">(inativa)</span>' : ''}</b><span>${esc(u.tag || '')} · ${mods.join(', ')}</span></div>
+        <div class="uni-acts">
+          <button class="btn btn-ghost btn-xs" onclick="openUnidadeEditor('${esc(u.key)}')">✏ Editar</button>
+          <button class="btn btn-ghost btn-xs" onclick="deleteUnidade('${esc(u.key)}')">🗑</button>
+        </div></div>`;
+    }).join('') || '<p class="cont-hint" style="padding:8px 0">Nenhuma unidade criada ainda. Clique em "Nova unidade".</p>';
+  document.getElementById('unidades-body').innerHTML = `
+    <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:12px">
+      <h3 class="cont-h4" style="margin:0">🏨 Unidades</h3>
+      <button class="btn btn-gold btn-xs" onclick="openUnidadeEditor(null)">➕ Nova unidade</button>
+    </div>
+    <div id="uni-editor"></div>
+    <h4 class="cont-h4" style="font-size:13px;margin:4px 0 6px">Criadas por você</h4>
+    ${custom}
+    <h4 class="cont-h4" style="font-size:13px;margin:16px 0 6px">Fixas do sistema</h4>
+    ${fixas}`;
+}
+function openUnidadeEditor(key) {
+  const u = key ? (UNIDADES_CUSTOM[key] || {}) : {};
+  const m = u.mods || {};
+  const el = document.getElementById('uni-editor');
+  el.innerHTML = `
+    <div class="uni-form">
+      <div class="uni-f"><label>Nome</label><input id="uf-nome" value="${esc(u.name || '')}" placeholder="Ex.: Pousada do Mar"></div>
+      <div class="uni-f"><label>Etiqueta</label><input id="uf-tag" value="${esc(u.tag || '')}" placeholder="Ex.: Boutique Hotel"></div>
+      <div class="uni-f uni-f-ic"><label>Ícone</label><input id="uf-icon" value="${esc(u.icon || '🏨')}" maxlength="2" placeholder="🏨"></div>
+      <div class="uni-f uni-f-full"><label>Tipo</label>
+        <select id="uf-tipo" onchange="uniEditorTipo()">
+          <option value="hotel"${m.frota ? '' : ' selected'}>Hotel / Pousada</option>
+          <option value="frota"${m.frota ? ' selected' : ''}>Frota (Carros)</option>
+        </select>
+      </div>
+      <div class="uni-f uni-f-full" id="uf-extras" style="${m.frota ? 'display:none' : ''}">
+        <label>Módulos extras (Planejado, Emergencial e ASG já vêm por padrão)</label>
+        <div class="uni-chks">
+          <label><input type="checkbox" id="uf-cont" ${m.cont ? 'checked' : ''}> Contagem</label>
+          <label><input type="checkbox" id="uf-gov" ${m.gov ? 'checked' : ''}> Governança</label>
+          <label><input type="checkbox" id="uf-inv" ${m.inv ? 'checked' : ''}> Inventário</label>
+        </div>
+      </div>
+      <div class="uni-f uni-f-full" style="display:flex;gap:10px;justify-content:flex-end;margin-top:4px">
+        <button class="btn btn-ghost btn-xs" onclick="document.getElementById('uni-editor').innerHTML=''">Cancelar</button>
+        <button class="btn btn-gold btn-xs" onclick="salvarUnidade('${key ? esc(key) : ''}')">💾 Salvar</button>
+      </div>
+    </div>`;
+}
+function uniEditorTipo() {
+  const frota = document.getElementById('uf-tipo').value === 'frota';
+  document.getElementById('uf-extras').style.display = frota ? 'none' : '';
+}
+async function salvarUnidade(key) {
+  const nome = (document.getElementById('uf-nome').value || '').trim();
+  if (!nome) { alert('Dê um nome para a unidade.'); return; }
+  const frota = document.getElementById('uf-tipo').value === 'frota';
+  const mods = frota ? { frota: true } : {
+    cont: document.getElementById('uf-cont').checked,
+    gov: document.getElementById('uf-gov').checked,
+    inv: document.getElementById('uf-inv').checked,
+  };
+  let k = key;
+  if (!k) {
+    k = unidadeSlug(nome);
+    const existe = new Set([...HOTELS_BASE.map(h => h.key), ...Object.keys(UNIDADES_CUSTOM || {})]);
+    let base = k, i = 2; while (existe.has(k)) { k = base + '_' + i; i++; }
+  }
+  const atual = UNIDADES_CUSTOM[k] || {};
+  const rec = {
+    key: k, name: nome,
+    tag: (document.getElementById('uf-tag').value || '').trim(),
+    icon: (document.getElementById('uf-icon').value || '🏨').trim() || '🏨',
+    path: atual.path || ('hotels/' + k),
+    mods, ativo: atual.ativo !== false, criadoEm: atual.criadoEm || Date.now(),
+  };
+  try {
+    await db.ref('config/unidades/' + k).set(rec);
+    UNIDADES_CUSTOM[k] = rec; rebuildHotels();
+    logAction(key ? 'Editou unidade' : 'Criou unidade', nome + (frota ? ' · Frota' : ' · ' + ['Planejado', 'Emergencial', 'ASG'].concat(mods.cont ? ['Contagem'] : [], mods.gov ? ['Governança'] : [], mods.inv ? ['Inventário'] : []).join(', ')));
+    renderUnidadesList();
+  } catch (e) { console.error(e); alert('Não foi possível salvar a unidade.'); }
+}
+async function deleteUnidade(key) {
+  const u = UNIDADES_CUSTOM[key]; if (!u) return;
+  if (!confirm('Remover a unidade "' + (u.name || key) + '" da lista?\n\nOs dados já lançados dela NÃO são apagados (ficam guardados no banco); ela só some do login. Dá para recriar depois com o mesmo nome.')) return;
+  try {
+    await db.ref('config/unidades/' + key).set(null);
+    delete UNIDADES_CUSTOM[key]; rebuildHotels();
+    logAction('Removeu unidade', u.name || key);
+    renderUnidadesList();
+    try { const l = document.getElementById('landing'); if (l && !l.classList.contains('hidden')) buildLanding(); } catch (e) {}
+  } catch (e) { console.error(e); alert('Não foi possível remover.'); }
+}
 function renderPerfisList() {
   const ids = Object.keys(PERFIS);
   const rows = ids.length ? ids.map(id => {
@@ -4300,8 +4432,21 @@ function ensureApp() {
         return firebase.auth().signInAnonymously().catch(err => console.error('Falha no login anônimo:', err));
       });
   }
+  if (!unidadesListening) {
+    unidadesListening = true;
+    Promise.resolve(authReady).then(() => {
+      db.ref('config/unidades').on('value', snap => {
+        const v = snap.val();
+        UNIDADES_CUSTOM = (v && typeof v === 'object' && !Array.isArray(v)) ? v : {};
+        rebuildHotels();
+        try { const l = document.getElementById('landing'); if (l && !l.classList.contains('hidden')) buildLanding(); } catch (e) {}
+        try { const u = document.getElementById('ov-unidades'); if (u && u.classList.contains('show')) renderUnidadesList(); } catch (e) {}
+      });
+    });
+  }
   return db;
 }
+let unidadesListening = false;
 
 async function sha256(str) {
   const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(str));
