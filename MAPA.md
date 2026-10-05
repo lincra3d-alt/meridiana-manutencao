@@ -143,7 +143,7 @@ Cada funcionalidade costuma tocar mais de um arquivo. Guia rápido:
 
 | Funcionalidade | Arquivos e seções |
 |---|---|
-| **Governança** (Costa do Sol) | `app.js` seções GOVERNANÇA (L76 dados, L2969 painel) + `governanca.html` (link) + Firebase `governanca*`. |
+| **Governança** (unidades com o módulo) | `app.js` seções GOVERNANÇA (dados, painel) + `governanca.html` (link) + Firebase `governanca*`. Blocos/quartos são por unidade: `govBlocos()` lê `governancaBlocos` da unidade; Costa do Sol usa o padrão `GOV_BLOCOS` quando não tem nó, as demais começam vazias. Cadastro em Cadastros → 🧺 Governança (abas Itens e Quartos: `openGovItens`, `renderGovCadQuartos`, `salvarGovCad`). |
 | **Contagem** (Brava) | `app.js` seção CONTAGEM (L18 dados, L2760 painel) + `contagem.html` (link) + Firebase `contagem*`. |
 | **Carros / Frota** | `HOTELS` (key `carros`, L138) + REGRAS/ALERTAS (L886) + BUSCA RELATÓRIO (L3605) + Viagens (`isViagemRow`, `nextViagemNum`, `kmRodado`) + `submit.html` (form de viagem). |
 | **Inventário** (Maria Maria) | `app.js` seção INVENTÁRIO (L1368). |
