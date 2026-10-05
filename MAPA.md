@@ -32,7 +32,7 @@ Sempre que pedir uma alteração, o assistente consulta este mapa e vai direto n
 
 ## 2. Unidades / Hotéis
 
-Definidas no array `HOTELS` em `app.js` (seção `// ─── HOTELS ───`, por volta da L138).
+Unidades fixas no array `HOTELS_BASE` em `app.js` (seção `// ─── HOTELS ───`, por volta da L138). As unidades criadas pela Área Administrativa ficam em `config/unidades` no Firebase e entram no `HOTELS` final via `rebuildHotels()` (base + custom). Criar/editar/remover pela Área Admin: botão `🏨 Unidades` (`openUnidades`, `salvarUnidade`, `deleteUnidade`). Fase 1 = nome, etiqueta, ícone e módulos; os blocos/quartos da Governança por unidade ficam para a Fase 2.
 
 | key | Nome | path no Firebase | Módulos extras |
 |---|---|---|---|
