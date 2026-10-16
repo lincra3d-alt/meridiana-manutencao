@@ -287,7 +287,9 @@ header{background:var(--s1);border-bottom:1px solid var(--border);padding:13px 2
 .rc-func input{background:var(--s4);border:1px solid var(--border2);border-radius:7px;padding:7px 9px;color:var(--text);font-family:inherit;font-size:12.5px;outline:none}
 .rc-nome{flex:1;min-width:110px}.rc-pct{width:52px;text-align:center}.rc-pctl{color:var(--muted);font-size:12px;margin-left:-4px}.rc-cpf{width:120px}.rc-pix{flex:1;min-width:110px}
 .rc-tipo{background:var(--s4);border:1px solid var(--border2);border-radius:7px;padding:7px 8px;color:var(--text);font-family:inherit;font-size:12px;outline:none;cursor:pointer}
-.rc-pct:disabled{opacity:.6;background:transparent;border-style:dashed}
+.rc-total{margin-top:10px;font-size:13px;padding:7px 11px;border-radius:8px;display:inline-block}
+.rc-total.ok{color:#3fb950;background:rgba(46,160,67,.12)}
+.rc-total.bad{color:#ff9a3e;background:rgba(229,120,40,.14)}
 .rec-aud-tag{font-size:9px;font-weight:700;color:#b9a2ff;background:rgba(150,120,240,.16);border-radius:5px;padding:1px 5px;vertical-align:middle}
 .rec-fcard.rec-aud{opacity:.96}
 .rc-cor{width:34px;height:34px;padding:2px;border:1px solid var(--border2);border-radius:8px;background:var(--s4);cursor:pointer;flex:none}

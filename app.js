@@ -1,5 +1,5 @@
 // ─── CONSTANTS ────────────────────────────────────────────────────────────────
-const APP_VERSION = 'v130';
+const APP_VERSION = 'v131';
 const MONTHS_PT = ['Jan','Fev','Mar','Abr','Mai','Jun','Jul','Ago','Set','Out','Nov','Dez'];
 const PRIO_CYCLE = ['ALTA','MEDIA','BAIXA'];
 const ST_CYCLE   = ['INDENTIFICADO','ANDAMENTO','CONCLUIDO'];
@@ -3947,14 +3947,25 @@ function recContaTotal(conta) {
   return lanc - ret;
 }
 function recRetFunc(fid) { return REC_RET.filter(r => r && r.func === fid).reduce((s, r) => s + (Number(r.valor) || 0), 0); }
-// % efetivo: auditores têm % fixa; principais dividem (100 − total auditores) igualmente.
+function recRound2(x) { return Math.round((Number(x) || 0) * 100) / 100; }
+// % efetivo: quem tem % digitada (>0) usa a sua; os principais sem % dividem o que sobra de 100% (fechando exato).
 function recPctsDe(funcs) {
-  const auditores = (funcs || []).filter(f => f && f.tipo === 'auditor');
-  const principais = (funcs || []).filter(f => f && f.tipo !== 'auditor');
-  const audTotal = auditores.reduce((s, f) => s + (Number(f.pct) || 0), 0);
-  const ppct = principais.length ? Math.max(0, 100 - audTotal) / principais.length : 0;
+  funcs = funcs || [];
   const map = {};
-  (funcs || []).forEach(f => { if (f) map[f.id] = f.tipo === 'auditor' ? (Number(f.pct) || 0) : ppct; });
+  const comPct = funcs.filter(f => f && Number(f.pct) > 0);            // auditores + principais com % manual
+  const autoP = funcs.filter(f => f && f.tipo !== 'auditor' && !(Number(f.pct) > 0)); // principais sem % → dividem o resto
+  comPct.forEach(f => map[f.id] = recRound2(f.pct));
+  const usado = comPct.reduce((s, f) => s + (Number(f.pct) || 0), 0);
+  const resto = Math.max(0, 100 - usado);
+  const n = autoP.length;
+  if (n) {
+    const each = Math.floor(resto / n * 100) / 100;
+    autoP.forEach(f => map[f.id] = each);
+    const diff = recRound2(resto - each * n);          // sobra do arredondamento vai pro primeiro, fechando 100%
+    if (autoP[0]) map[autoP[0].id] = recRound2(each + diff);
+  }
+  // principais com % manual=0 e sem auto (todos manuais) já estão no map; garante presença
+  funcs.forEach(f => { if (f && map[f.id] === undefined) map[f.id] = recRound2(f.pct); });
   return map;
 }
 function recPcts() { return recPctsDe(recConfig().funcionarios); }
@@ -4115,18 +4126,21 @@ function renderRecCfg() {
         <option value="principal"${aud ? '' : ' selected'}>Principal</option>
         <option value="auditor"${aud ? ' selected' : ''}>Auditor noturno</option>
       </select>
-      <input class="rc-pct" type="number" step="0.5" min="0" value="${aud ? (f.pct || 7.5) : recFmtPct(pcts[f.id]).replace('%', '').replace(',', '.')}" ${aud ? '' : 'disabled'} onchange="recCfgF(${i},'pct',this.value)" title="%"><span class="rc-pctl">%</span>
+      <input class="rc-pct" type="number" step="0.5" min="0" value="${pcts[f.id] !== undefined ? pcts[f.id] : (f.pct || 0)}" onchange="recCfgF(${i},'pct',this.value)" title="%${aud ? '' : ' (deixe em branco/0 para dividir automático)'}"><span class="rc-pctl">%</span>
       <input class="rc-cpf" value="${esc(f.cpf || '')}" placeholder="CPF" onchange="recCfgF(${i},'cpf',this.value)">
       <input class="rc-pix" value="${esc(f.pix || '')}" placeholder="PIX" onchange="recCfgF(${i},'pix',this.value)">
       <button class="btn btn-ghost btn-xs" onclick="recCfgDelFunc(${i})">🗑</button>
     </div>`;
   }).join('');
+  const total = recRound2(Object.values(pcts).reduce((s, v) => s + (Number(v) || 0), 0));
+  const totOk = Math.abs(total - 100) < 0.05;
   const emp = recCfgEdit.empresas.map((e, i) => `<span class="rc-emp">${esc(e)}<button onclick="recCfgDelEmp(${i})">✕</button></span>`).join('');
   document.getElementById('reccfg-body').innerHTML = `
     <h3>⚙ Configurar Recepção</h3>
     <h4 class="cont-h4" style="font-size:13px">Funcionários</h4>
-    <p class="cont-hint" style="margin:0 0 8px">Os <b>Principais</b> dividem igualmente o que sobra de 100%. Os <b>Auditores noturnos</b> têm uma % fixa (menor), que você digita. Ex.: 2 auditores de 7,5% = 15%; os 5 principais ficam com 85% ÷ 5 = 17% cada.</p>
+    <p class="cont-hint" style="margin:0 0 8px">Quem tem <b>%</b> digitada usa a sua (ex.: auditor 7,5%). Quem fica em <b>0/branco</b> divide o que sobra de 100% igualmente. Dá para editar qualquer um.</p>
     <div class="rc-funcs">${funcs}</div>
+    <div class="rc-total ${totOk ? 'ok' : 'bad'}">Total: <b>${recFmtPct(total)}</b>${totOk ? ' ✓' : ' ⚠ precisa somar 100%'}</div>
     <button class="btn btn-ghost btn-xs" onclick="recCfgAddFunc()" style="margin-top:6px">➕ Funcionário</button>
     <h4 class="cont-h4" style="font-size:13px;margin-top:16px">Empresas</h4>
     <div class="rc-emps">${emp || '<span class="cont-hint">nenhuma</span>'}</div>
@@ -4152,7 +4166,7 @@ function recCfgDelFunc(i) { recCfgEdit.funcionarios.splice(i, 1); renderRecCfg()
 function recCfgAddEmp() { const inp = document.getElementById('rc-newemp'); const v = (inp.value || '').trim().toUpperCase(); if (v && !recCfgEdit.empresas.includes(v)) recCfgEdit.empresas.push(v); renderRecCfg(); }
 function recCfgDelEmp(i) { recCfgEdit.empresas.splice(i, 1); renderRecCfg(); }
 function salvarRecCfg() {
-  const funcs = recCfgEdit.funcionarios.filter(f => (f.nome || '').trim()).map((f, i) => ({ id: f.id || ('f_' + Math.random().toString(36).slice(2, 7)), nome: f.nome.trim(), tipo: f.tipo === 'auditor' ? 'auditor' : 'principal', pct: f.tipo === 'auditor' ? (Number(f.pct) > 0 ? Number(f.pct) : 7.5) : 0, cpf: (f.cpf || '').trim(), pix: (f.pix || '').trim(), cor: f.cor || REC_CORES[i % REC_CORES.length] }));
+  const funcs = recCfgEdit.funcionarios.filter(f => (f.nome || '').trim()).map((f, i) => ({ id: f.id || ('f_' + Math.random().toString(36).slice(2, 7)), nome: f.nome.trim(), tipo: f.tipo === 'auditor' ? 'auditor' : 'principal', pct: f.tipo === 'auditor' ? (Number(f.pct) > 0 ? Number(f.pct) : 7.5) : (Number(f.pct) || 0), cpf: (f.cpf || '').trim(), pix: (f.pix || '').trim(), cor: f.cor || REC_CORES[i % REC_CORES.length] }));
   const cfg = { funcionarios: funcs, empresas: recCfgEdit.empresas, contas: recCfgEdit.contas, pixRecebimento: (recCfgEdit.pixRecebimento || '').trim() };
   REC_CONFIG = cfg;
   if (db) db.ref(`${hotelPath()}/recepcaoConfig`).set(cfg);
