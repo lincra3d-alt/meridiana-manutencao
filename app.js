@@ -1,5 +1,5 @@
 // ─── CONSTANTS ────────────────────────────────────────────────────────────────
-const APP_VERSION = 'v126';
+const APP_VERSION = 'v127';
 const MONTHS_PT = ['Jan','Fev','Mar','Abr','Mai','Jun','Jul','Ago','Set','Out','Nov','Dez'];
 const PRIO_CYCLE = ['ALTA','MEDIA','BAIXA'];
 const ST_CYCLE   = ['INDENTIFICADO','ANDAMENTO','CONCLUIDO'];
@@ -3952,15 +3952,32 @@ function recDisponivel(f) { return recComissaoBruta(f) - recRetFunc(f.id); }
 function recFuncById(id) { return recConfig().funcionarios.find(f => f.id === id); }
 function recFuncNome(id) { const f = recFuncById(id); return f ? f.nome : id; }
 
-let recView = 'lancamentos'; // 'lancamentos' | 'comissoes'
-function setRecView(v) { recView = (v === 'comissoes' ? 'comissoes' : 'lancamentos'); renderRecepcao(); }
+let recView = 'lancamentos'; // 'lancamentos' | 'retiradas'
+function setRecView(v) { recView = (v === 'retiradas' ? 'retiradas' : 'lancamentos'); renderRecepcao(); }
+function recCorFunc(f, i) { return f.cor || REC_CORES[i % REC_CORES.length]; }
 function renderRecepcao() {
   const el = document.getElementById('recepcao-inner'); if (!el) return;
   const cfg = recConfig();
   const base = recConfirmado();
-  // Resumo compacto (chips): contas + base
   const chips = cfg.contas.map(c => `<div class="rec-chip"><span class="rec-chip-l">${esc(c)}</span><span class="rec-chip-v">${fmtBRL(recContaTotal(c))}</span></div>`).join('') +
     `<div class="rec-chip rec-chip-base"><span class="rec-chip-l">Base confirmada</span><span class="rec-chip-v">${fmtBRL(base)}</span></div>`;
+  // Cards coloridos dos funcionários — sempre na tela
+  const cards = cfg.funcionarios.map((f, i) => {
+    const bruta = recComissaoBruta(f), ret = recRetFunc(f.id), disp = bruta - ret;
+    const cor = recCorFunc(f, i);
+    const ini = (f.nome || '?').trim().charAt(0).toUpperCase();
+    const pctRet = bruta > 0 ? Math.min(100, Math.max(0, ret / bruta * 100)) : 0;
+    return `<div class="rec-fcard" style="--c:${cor}">
+      <div class="rec-fcard-top">
+        <span class="rec-av">${esc(ini)}</span>
+        <div class="rec-fcard-id"><b>${esc(f.nome)}</b><span>${esc(f.pix || f.cpf || '—')}</span></div>
+        <span class="rec-fcard-pct">${f.pct || 0}%</span>
+      </div>
+      <div class="rec-fcard-disp ${disp < 0 ? 'neg' : ''}">${fmtBRL(disp)}<small>disponível</small></div>
+      <div class="rec-fcard-bar"><span style="width:${100 - pctRet}%"></span></div>
+      <div class="rec-fcard-sub"><span>💰 ${fmtBRL(bruta)}</span><span>➖ ${fmtBRL(ret)}</span></div>
+    </div>`;
+  }).join('') || '<p class="cont-hint" style="padding:10px 0">Configure os funcionários em Parâmetros → Recepção.</p>';
   const head = `
     <div class="rec-head">
       <h2 class="modview-title" style="margin:0">💼 Recepção</h2>
@@ -3971,31 +3988,13 @@ function renderRecepcao() {
       </div>
     </div>
     <div class="rec-chips">${chips}</div>
+    <div class="rec-fcards">${cards}</div>
     <div class="rec-tabs">
       <button class="rec-tab${recView === 'lancamentos' ? ' active' : ''}" onclick="setRecView('lancamentos')">📋 Lançamentos</button>
-      <button class="rec-tab${recView === 'comissoes' ? ' active' : ''}" onclick="setRecView('comissoes')">💰 Comissões</button>
+      <button class="rec-tab${recView === 'retiradas' ? ' active' : ''}" onclick="setRecView('retiradas')">➖ Retiradas</button>
     </div>`;
-  if (recView === 'comissoes') {
-    const cards = cfg.funcionarios.map((f, i) => {
-      const bruta = recComissaoBruta(f), ret = recRetFunc(f.id), disp = bruta - ret;
-      const cor = REC_CORES[i % REC_CORES.length];
-      const ini = (f.nome || '?').trim().charAt(0).toUpperCase();
-      const pctRet = bruta > 0 ? Math.min(100, Math.max(0, ret / bruta * 100)) : 0;
-      return `<div class="rec-fcard" style="--c:${cor}">
-        <div class="rec-fcard-top">
-          <span class="rec-av">${esc(ini)}</span>
-          <div class="rec-fcard-id"><b>${esc(f.nome)}</b><span>${esc(f.pix || f.cpf || '—')}</span></div>
-          <span class="rec-fcard-pct">${f.pct || 0}%</span>
-        </div>
-        <div class="rec-fcard-disp ${disp < 0 ? 'neg' : ''}">${fmtBRL(disp)}<small>disponível</small></div>
-        <div class="rec-fcard-bar"><span style="width:${100 - pctRet}%"></span></div>
-        <div class="rec-fcard-sub"><span>💰 ${fmtBRL(bruta)}</span><span>➖ ${fmtBRL(ret)}</span></div>
-      </div>`;
-    }).join('') || '<p class="cont-hint" style="padding:10px 0">Configure os funcionários em Parâmetros → Recepção.</p>';
-    el.innerHTML = head + `
-      <div class="rec-fcards">${cards}</div>
-      <h4 class="cont-h4">Retiradas</h4>
-      <div class="rec-tblwrap"><table class="cont-table rec-table"><thead><tr><th>Funcionário</th><th>Descrição</th><th>Data</th><th class="rec-q">Valor</th><th>Conta</th><th></th></tr></thead><tbody>${recRetRows()}</tbody></table></div>`;
+  if (recView === 'retiradas') {
+    el.innerHTML = head + `<div class="rec-tblwrap"><table class="cont-table rec-table"><thead><tr><th>Funcionário</th><th>Descrição</th><th>Data</th><th class="rec-q">Valor</th><th>Conta</th><th></th></tr></thead><tbody>${recRetRows()}</tbody></table></div>`;
     return;
   }
   const lancRows = REC_LANC.slice().sort((a, b) => (b.ts || 0) - (a.ts || 0)).map(l => {
@@ -4008,8 +4007,7 @@ function renderRecepcao() {
       <td class="rec-acts"><button class="btn btn-ghost btn-xs" onclick="openRecLanc('${esc(l.id)}')">✏</button><button class="btn btn-ghost btn-xs" onclick="removeRecLanc('${esc(l.id)}')">🗑</button></td>
     </tr>`;
   }).join('') || '<tr><td colspan="7" style="text-align:center;color:var(--muted);padding:16px">Nenhum lançamento ainda. Clique em <b>➕ Lançamento</b>.</td></tr>';
-  el.innerHTML = head + `
-    <div class="rec-tblwrap"><table class="cont-table rec-table"><thead><tr><th>Empresa</th><th>Descrição</th><th>Data</th><th class="rec-q">Valor</th><th>Conta</th><th>Status</th><th></th></tr></thead><tbody>${lancRows}</tbody></table></div>`;
+  el.innerHTML = head + `<div class="rec-tblwrap"><table class="cont-table rec-table"><thead><tr><th>Empresa</th><th>Descrição</th><th>Data</th><th class="rec-q">Valor</th><th>Conta</th><th>Status</th><th></th></tr></thead><tbody>${lancRows}</tbody></table></div>`;
 }
 function recRetRows() {
   return REC_RET.slice().sort((a, b) => (b.ts || 0) - (a.ts || 0)).map(r => `<tr>
@@ -4093,7 +4091,8 @@ function openRecCfg() {
 function closeRecCfg() { document.getElementById('ov-reccfg').classList.remove('show'); recCfgEdit = null; }
 function renderRecCfg() {
   const funcs = recCfgEdit.funcionarios.map((f, i) => `
-    <div class="rc-func">
+    <div class="rc-func" style="--c:${recCorFunc(f, i)}">
+      <input class="rc-cor" type="color" value="${esc(f.cor || recCorFunc(f, i))}" onchange="recCfgF(${i},'cor',this.value)" title="Cor do card">
       <input class="rc-nome" value="${esc(f.nome || '')}" placeholder="Nome" onchange="recCfgF(${i},'nome',this.value)">
       <input class="rc-pct" type="number" step="1" min="0" value="${f.pct || 0}" onchange="recCfgF(${i},'pct',this.value)" title="%"><span class="rc-pctl">%</span>
       <input class="rc-cpf" value="${esc(f.cpf || '')}" placeholder="CPF" onchange="recCfgF(${i},'cpf',this.value)">
@@ -4119,7 +4118,7 @@ function recCfgDelFunc(i) { recCfgEdit.funcionarios.splice(i, 1); renderRecCfg()
 function recCfgAddEmp() { const inp = document.getElementById('rc-newemp'); const v = (inp.value || '').trim().toUpperCase(); if (v && !recCfgEdit.empresas.includes(v)) recCfgEdit.empresas.push(v); renderRecCfg(); }
 function recCfgDelEmp(i) { recCfgEdit.empresas.splice(i, 1); renderRecCfg(); }
 function salvarRecCfg() {
-  const funcs = recCfgEdit.funcionarios.filter(f => (f.nome || '').trim()).map(f => ({ id: f.id || ('f_' + Math.random().toString(36).slice(2, 7)), nome: f.nome.trim(), pct: Number(f.pct) || 0, cpf: (f.cpf || '').trim(), pix: (f.pix || '').trim() }));
+  const funcs = recCfgEdit.funcionarios.filter(f => (f.nome || '').trim()).map((f, i) => ({ id: f.id || ('f_' + Math.random().toString(36).slice(2, 7)), nome: f.nome.trim(), pct: Number(f.pct) || 0, cpf: (f.cpf || '').trim(), pix: (f.pix || '').trim(), cor: f.cor || REC_CORES[i % REC_CORES.length] }));
   const cfg = { funcionarios: funcs, empresas: recCfgEdit.empresas, contas: recCfgEdit.contas, pixRecebimento: (recCfgEdit.pixRecebimento || '').trim() };
   REC_CONFIG = cfg;
   if (db) db.ref(`${hotelPath()}/recepcaoConfig`).set(cfg);
