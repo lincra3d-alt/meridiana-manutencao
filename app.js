@@ -1,5 +1,5 @@
 // ─── CONSTANTS ────────────────────────────────────────────────────────────────
-const APP_VERSION = 'v132';
+const APP_VERSION = 'v133';
 const MONTHS_PT = ['Jan','Fev','Mar','Abr','Mai','Jun','Jul','Ago','Set','Out','Nov','Dez'];
 const PRIO_CYCLE = ['ALTA','MEDIA','BAIXA'];
 const ST_CYCLE   = ['INDENTIFICADO','ANDAMENTO','CONCLUIDO'];
@@ -223,7 +223,7 @@ let HOTELS = HOTELS_BASE.slice();
 // Módulos padrão de uma unidade fixa (quando não há override no config).
 function baseModsDe(h) {
   if (h.frota) return { frota: true };
-  return { plan: true, emrg: true, asg: true, cont: !!h.contagem, gov: !!h.governanca, inv: !!h.inventario };
+  return { plan: true, emrg: true, asg: true, cont: !!h.contagem, gov: !!h.governanca, inv: !!h.inventario, recep: true };
 }
 // Aplica os módulos (override ou padrão) sobre o objeto da unidade, ligando/desligando os recursos.
 function efetivarUnidade(baseObj, cfg) {
