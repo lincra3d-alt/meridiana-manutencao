@@ -1,5 +1,5 @@
 // ─── CONSTANTS ────────────────────────────────────────────────────────────────
-const APP_VERSION = 'v128';
+const APP_VERSION = 'v129';
 const MONTHS_PT = ['Jan','Fev','Mar','Abr','Mai','Jun','Jul','Ago','Set','Out','Nov','Dez'];
 const PRIO_CYCLE = ['ALTA','MEDIA','BAIXA'];
 const ST_CYCLE   = ['INDENTIFICADO','ANDAMENTO','CONCLUIDO'];
@@ -4147,7 +4147,7 @@ function recCfgDelFunc(i) { recCfgEdit.funcionarios.splice(i, 1); renderRecCfg()
 function recCfgAddEmp() { const inp = document.getElementById('rc-newemp'); const v = (inp.value || '').trim().toUpperCase(); if (v && !recCfgEdit.empresas.includes(v)) recCfgEdit.empresas.push(v); renderRecCfg(); }
 function recCfgDelEmp(i) { recCfgEdit.empresas.splice(i, 1); renderRecCfg(); }
 function salvarRecCfg() {
-  const funcs = recCfgEdit.funcionarios.filter(f => (f.nome || '').trim()).map((f, i) => ({ id: f.id || ('f_' + Math.random().toString(36).slice(2, 7)), nome: f.nome.trim(), tipo: f.tipo === 'auditor' ? 'auditor' : 'principal', pct: f.tipo === 'auditor' ? (Number(f.pct) || 0) : 0, cpf: (f.cpf || '').trim(), pix: (f.pix || '').trim(), cor: f.cor || REC_CORES[i % REC_CORES.length] }));
+  const funcs = recCfgEdit.funcionarios.filter(f => (f.nome || '').trim()).map((f, i) => ({ id: f.id || ('f_' + Math.random().toString(36).slice(2, 7)), nome: f.nome.trim(), tipo: f.tipo === 'auditor' ? 'auditor' : 'principal', pct: f.tipo === 'auditor' ? (Number(f.pct) > 0 ? Number(f.pct) : 7.5) : 0, cpf: (f.cpf || '').trim(), pix: (f.pix || '').trim(), cor: f.cor || REC_CORES[i % REC_CORES.length] }));
   const cfg = { funcionarios: funcs, empresas: recCfgEdit.empresas, contas: recCfgEdit.contas, pixRecebimento: (recCfgEdit.pixRecebimento || '').trim() };
   REC_CONFIG = cfg;
   if (db) db.ref(`${hotelPath()}/recepcaoConfig`).set(cfg);
