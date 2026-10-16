@@ -255,6 +255,22 @@ header{background:var(--s1);border-bottom:1px solid var(--border);padding:13px 2
 .rec-tblwrap{overflow-x:auto}
 .cont-table.rec-table td.rec-disp{color:#3fb950;font-weight:700}
 .rec-pixcell{font-size:11.5px;color:var(--muted2);word-break:break-all}
+/* Cards coloridos de comissão */
+.rec-fcards{display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:14px;margin-bottom:8px}
+.rec-fcard{position:relative;background:var(--s2);background:linear-gradient(160deg,color-mix(in srgb,var(--c) 14%,var(--s2)),var(--s2) 70%);border:1px solid var(--border);border:1px solid color-mix(in srgb,var(--c) 40%,var(--border));border-radius:14px;padding:14px;overflow:hidden}
+.rec-fcard::before{content:'';position:absolute;top:0;left:0;right:0;height:4px;background:var(--c)}
+.rec-fcard-top{display:flex;align-items:center;gap:10px;margin-bottom:10px}
+.rec-av{width:38px;height:38px;flex:none;border-radius:50%;display:flex;align-items:center;justify-content:center;font-weight:800;font-size:17px;color:#10131a;background:var(--c)}
+.rec-fcard-id{flex:1;min-width:0}
+.rec-fcard-id b{display:block;font-size:14.5px;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.rec-fcard-id span{font-size:10.5px;color:var(--muted2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;display:block}
+.rec-fcard-pct{flex:none;font-size:12px;font-weight:800;color:var(--c);background:color-mix(in srgb,var(--c) 18%,transparent);border-radius:7px;padding:3px 8px}
+.rec-fcard-disp{font-size:26px;font-weight:800;color:var(--c);line-height:1.1;display:flex;align-items:baseline;gap:8px}
+.rec-fcard-disp small{font-size:10px;font-weight:600;color:var(--muted2);text-transform:uppercase;letter-spacing:.5px}
+.rec-fcard-disp.neg{color:#ff7a7e}
+.rec-fcard-bar{height:6px;border-radius:4px;background:var(--s4);margin:10px 0 8px;overflow:hidden}
+.rec-fcard-bar span{display:block;height:100%;background:var(--c);border-radius:4px}
+.rec-fcard-sub{display:flex;justify-content:space-between;font-size:11.5px;color:var(--muted2)}
 .cont-table.rec-table td.rec-q,.cont-table.rec-table th.rec-q{text-align:right!important;white-space:nowrap}
 .rec-acts{white-space:nowrap}
 .rec-st{font-size:10px;font-weight:700;padding:2px 7px;border-radius:5px}

@@ -1,5 +1,5 @@
 // ─── CONSTANTS ────────────────────────────────────────────────────────────────
-const APP_VERSION = 'v125';
+const APP_VERSION = 'v126';
 const MONTHS_PT = ['Jan','Fev','Mar','Abr','Mai','Jun','Jul','Ago','Set','Out','Nov','Dez'];
 const PRIO_CYCLE = ['ALTA','MEDIA','BAIXA'];
 const ST_CYCLE   = ['INDENTIFICADO','ANDAMENTO','CONCLUIDO'];
@@ -117,6 +117,7 @@ let GOV_MINIMOS = {};     // regra do mínimo por item: { 'T. ROSTO': {m:'x'|'+'
 let REC_CONFIG = null;    // { funcionarios:[{id,nome,pct,cpf,pix}], empresas:[...], contas:[...], pixRecebimento }
 let REC_LANC = [];        // lançamentos: [{id, empresa, desc, data, valor, conta, status}]
 let REC_RET = [];         // retiradas: [{id, func, conta, valor, data, desc}]
+const REC_CORES = ['#ddb84e', '#3fb9a8', '#5b8def', '#b07cf0', '#3fb950', '#ff8a5c', '#e5676f', '#4ec9e0', '#f0a93f'];
 const REC_CONTAS_PADRAO = ['CAIXA', 'CONTA', 'CONTA2'];
 const REC_STATUS = ['A REALIZAR', 'PENDENTE', 'CONFIRMADO'];
 const REC_EMPRESAS_PADRAO = ['JOÃO', 'TX', 'STYLUS', 'RENATO', 'BALCÃO', 'COZINHA', 'OMAR', 'JAQUELINE', 'DEIVISON', 'ADELSON', 'NICOLE', 'CARLOS', 'ALEXANDRE', 'MULTISHOW', 'PETRONIO', 'EXTRAS', 'FILHOS DO SOL'];
@@ -3975,12 +3976,24 @@ function renderRecepcao() {
       <button class="rec-tab${recView === 'comissoes' ? ' active' : ''}" onclick="setRecView('comissoes')">💰 Comissões</button>
     </div>`;
   if (recView === 'comissoes') {
-    const linhas = cfg.funcionarios.map(f => {
+    const cards = cfg.funcionarios.map((f, i) => {
       const bruta = recComissaoBruta(f), ret = recRetFunc(f.id), disp = bruta - ret;
-      return `<tr><td><b>${esc(f.nome)}</b></td><td class="rec-q">${f.pct || 0}%</td><td class="rec-q">${fmtBRL(bruta)}</td><td class="rec-q">${fmtBRL(ret)}</td><td class="rec-q rec-disp">${fmtBRL(disp)}</td><td class="rec-pixcell">${esc(f.pix || f.cpf || '—')}</td></tr>`;
-    }).join('') || '<tr><td colspan="6" style="text-align:center;color:var(--muted);padding:14px">Configure os funcionários em Parâmetros.</td></tr>';
+      const cor = REC_CORES[i % REC_CORES.length];
+      const ini = (f.nome || '?').trim().charAt(0).toUpperCase();
+      const pctRet = bruta > 0 ? Math.min(100, Math.max(0, ret / bruta * 100)) : 0;
+      return `<div class="rec-fcard" style="--c:${cor}">
+        <div class="rec-fcard-top">
+          <span class="rec-av">${esc(ini)}</span>
+          <div class="rec-fcard-id"><b>${esc(f.nome)}</b><span>${esc(f.pix || f.cpf || '—')}</span></div>
+          <span class="rec-fcard-pct">${f.pct || 0}%</span>
+        </div>
+        <div class="rec-fcard-disp ${disp < 0 ? 'neg' : ''}">${fmtBRL(disp)}<small>disponível</small></div>
+        <div class="rec-fcard-bar"><span style="width:${100 - pctRet}%"></span></div>
+        <div class="rec-fcard-sub"><span>💰 ${fmtBRL(bruta)}</span><span>➖ ${fmtBRL(ret)}</span></div>
+      </div>`;
+    }).join('') || '<p class="cont-hint" style="padding:10px 0">Configure os funcionários em Parâmetros → Recepção.</p>';
     el.innerHTML = head + `
-      <div class="rec-tblwrap"><table class="cont-table rec-table"><thead><tr><th>Funcionário</th><th class="rec-q">%</th><th class="rec-q">Comissão</th><th class="rec-q">Retiradas</th><th class="rec-q">Disponível</th><th>PIX</th></tr></thead><tbody>${linhas}</tbody></table></div>
+      <div class="rec-fcards">${cards}</div>
       <h4 class="cont-h4">Retiradas</h4>
       <div class="rec-tblwrap"><table class="cont-table rec-table"><thead><tr><th>Funcionário</th><th>Descrição</th><th>Data</th><th class="rec-q">Valor</th><th>Conta</th><th></th></tr></thead><tbody>${recRetRows()}</tbody></table></div>`;
     return;
