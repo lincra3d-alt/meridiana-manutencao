@@ -1,5 +1,5 @@
 // ─── CONSTANTS ────────────────────────────────────────────────────────────────
-const APP_VERSION = 'v127';
+const APP_VERSION = 'v128';
 const MONTHS_PT = ['Jan','Fev','Mar','Abr','Mai','Jun','Jul','Ago','Set','Out','Nov','Dez'];
 const PRIO_CYCLE = ['ALTA','MEDIA','BAIXA'];
 const ST_CYCLE   = ['INDENTIFICADO','ANDAMENTO','CONCLUIDO'];
@@ -3947,7 +3947,19 @@ function recContaTotal(conta) {
   return lanc - ret;
 }
 function recRetFunc(fid) { return REC_RET.filter(r => r && r.func === fid).reduce((s, r) => s + (Number(r.valor) || 0), 0); }
-function recComissaoBruta(f) { return recConfirmado() * (Number(f.pct) || 0) / 100; }
+// % efetivo: auditores têm % fixa; principais dividem (100 − total auditores) igualmente.
+function recPctsDe(funcs) {
+  const auditores = (funcs || []).filter(f => f && f.tipo === 'auditor');
+  const principais = (funcs || []).filter(f => f && f.tipo !== 'auditor');
+  const audTotal = auditores.reduce((s, f) => s + (Number(f.pct) || 0), 0);
+  const ppct = principais.length ? Math.max(0, 100 - audTotal) / principais.length : 0;
+  const map = {};
+  (funcs || []).forEach(f => { if (f) map[f.id] = f.tipo === 'auditor' ? (Number(f.pct) || 0) : ppct; });
+  return map;
+}
+function recPcts() { return recPctsDe(recConfig().funcionarios); }
+function recFmtPct(p) { const n = Math.round((Number(p) || 0) * 10) / 10; return (Number.isInteger(n) ? n : n.toFixed(1).replace('.', ',')) + '%'; }
+function recComissaoBruta(f) { return recConfirmado() * (recPcts()[f.id] || 0) / 100; }
 function recDisponivel(f) { return recComissaoBruta(f) - recRetFunc(f.id); }
 function recFuncById(id) { return recConfig().funcionarios.find(f => f.id === id); }
 function recFuncNome(id) { const f = recFuncById(id); return f ? f.nome : id; }
@@ -3962,16 +3974,18 @@ function renderRecepcao() {
   const chips = cfg.contas.map(c => `<div class="rec-chip"><span class="rec-chip-l">${esc(c)}</span><span class="rec-chip-v">${fmtBRL(recContaTotal(c))}</span></div>`).join('') +
     `<div class="rec-chip rec-chip-base"><span class="rec-chip-l">Base confirmada</span><span class="rec-chip-v">${fmtBRL(base)}</span></div>`;
   // Cards coloridos dos funcionários — sempre na tela
+  const pcts = recPcts();
   const cards = cfg.funcionarios.map((f, i) => {
     const bruta = recComissaoBruta(f), ret = recRetFunc(f.id), disp = bruta - ret;
     const cor = recCorFunc(f, i);
     const ini = (f.nome || '?').trim().charAt(0).toUpperCase();
     const pctRet = bruta > 0 ? Math.min(100, Math.max(0, ret / bruta * 100)) : 0;
-    return `<div class="rec-fcard" style="--c:${cor}">
+    const aud = f.tipo === 'auditor';
+    return `<div class="rec-fcard${aud ? ' rec-aud' : ''}" style="--c:${cor}">
       <div class="rec-fcard-top">
         <span class="rec-av">${esc(ini)}</span>
-        <div class="rec-fcard-id"><b>${esc(f.nome)}</b><span>${esc(f.pix || f.cpf || '—')}</span></div>
-        <span class="rec-fcard-pct">${f.pct || 0}%</span>
+        <div class="rec-fcard-id"><b>${esc(f.nome)}${aud ? ' <span class="rec-aud-tag">🌙 auditor</span>' : ''}</b><span>${esc(f.pix || f.cpf || '—')}</span></div>
+        <span class="rec-fcard-pct">${recFmtPct(pcts[f.id])}</span>
       </div>
       <div class="rec-fcard-disp ${disp < 0 ? 'neg' : ''}">${fmtBRL(disp)}<small>disponível</small></div>
       <div class="rec-fcard-bar"><span style="width:${100 - pctRet}%"></span></div>
@@ -4090,19 +4104,28 @@ function openRecCfg() {
 }
 function closeRecCfg() { document.getElementById('ov-reccfg').classList.remove('show'); recCfgEdit = null; }
 function renderRecCfg() {
-  const funcs = recCfgEdit.funcionarios.map((f, i) => `
+  const pcts = recPctsDe(recCfgEdit.funcionarios);
+  const funcs = recCfgEdit.funcionarios.map((f, i) => {
+    const aud = f.tipo === 'auditor';
+    return `
     <div class="rc-func" style="--c:${recCorFunc(f, i)}">
-      <input class="rc-cor" type="color" value="${esc(f.cor || recCorFunc(f, i))}" onchange="recCfgF(${i},'cor',this.value)" title="Cor do card">
+      <input class="rc-cor" type="color" value="${esc(f.cor || recCorFunc(f, i))}" onchange="recCfgF(${i},'cor',this.value)" title="Cor">
       <input class="rc-nome" value="${esc(f.nome || '')}" placeholder="Nome" onchange="recCfgF(${i},'nome',this.value)">
-      <input class="rc-pct" type="number" step="1" min="0" value="${f.pct || 0}" onchange="recCfgF(${i},'pct',this.value)" title="%"><span class="rc-pctl">%</span>
+      <select class="rc-tipo" onchange="recCfgF(${i},'tipo',this.value)">
+        <option value="principal"${aud ? '' : ' selected'}>Principal</option>
+        <option value="auditor"${aud ? ' selected' : ''}>Auditor noturno</option>
+      </select>
+      <input class="rc-pct" type="number" step="0.5" min="0" value="${aud ? (f.pct || 7.5) : recFmtPct(pcts[f.id]).replace('%', '').replace(',', '.')}" ${aud ? '' : 'disabled'} onchange="recCfgF(${i},'pct',this.value)" title="%"><span class="rc-pctl">%</span>
       <input class="rc-cpf" value="${esc(f.cpf || '')}" placeholder="CPF" onchange="recCfgF(${i},'cpf',this.value)">
       <input class="rc-pix" value="${esc(f.pix || '')}" placeholder="PIX" onchange="recCfgF(${i},'pix',this.value)">
       <button class="btn btn-ghost btn-xs" onclick="recCfgDelFunc(${i})">🗑</button>
-    </div>`).join('');
+    </div>`;
+  }).join('');
   const emp = recCfgEdit.empresas.map((e, i) => `<span class="rc-emp">${esc(e)}<button onclick="recCfgDelEmp(${i})">✕</button></span>`).join('');
   document.getElementById('reccfg-body').innerHTML = `
     <h3>⚙ Configurar Recepção</h3>
-    <h4 class="cont-h4" style="font-size:13px">Funcionários (nome, %, CPF, PIX)</h4>
+    <h4 class="cont-h4" style="font-size:13px">Funcionários</h4>
+    <p class="cont-hint" style="margin:0 0 8px">Os <b>Principais</b> dividem igualmente o que sobra de 100%. Os <b>Auditores noturnos</b> têm uma % fixa (menor), que você digita. Ex.: 2 auditores de 7,5% = 15%; os 5 principais ficam com 85% ÷ 5 = 17% cada.</p>
     <div class="rc-funcs">${funcs}</div>
     <button class="btn btn-ghost btn-xs" onclick="recCfgAddFunc()" style="margin-top:6px">➕ Funcionário</button>
     <h4 class="cont-h4" style="font-size:13px;margin-top:16px">Empresas</h4>
@@ -4112,13 +4135,19 @@ function renderRecCfg() {
     <input class="rc-pixrec" id="rc-pixrec" value="${esc(recCfgEdit.pixRecebimento || '')}" placeholder="Chave PIX da recepção" onchange="recCfgEdit.pixRecebimento=this.value">
     <div class="mactions" style="margin-top:16px"><button class="btn btn-ghost btn-xs" onclick="closeRecCfg()">Cancelar</button><button class="btn btn-gold btn-xs" onclick="salvarRecCfg()">💾 Salvar</button></div>`;
 }
-function recCfgF(i, campo, val) { if (!recCfgEdit.funcionarios[i]) return; recCfgEdit.funcionarios[i][campo] = campo === 'pct' ? (parseFloat(val) || 0) : val.trim(); }
-function recCfgAddFunc() { recCfgEdit.funcionarios.push({ id: 'f_' + Date.now().toString(36) + Math.random().toString(36).slice(2, 5), nome: '', pct: 25, cpf: '', pix: '' }); renderRecCfg(); }
+function recCfgF(i, campo, val) {
+  const f = recCfgEdit.funcionarios[i]; if (!f) return;
+  if (campo === 'pct') f.pct = parseFloat(String(val).replace(',', '.')) || 0;
+  else f[campo] = String(val).trim();
+  if (campo === 'tipo' && val === 'auditor' && !(f.pct > 0)) f.pct = 7.5;
+  if (campo === 'tipo' || campo === 'pct') renderRecCfg();
+}
+function recCfgAddFunc() { recCfgEdit.funcionarios.push({ id: 'f_' + Date.now().toString(36) + Math.random().toString(36).slice(2, 5), nome: '', tipo: 'principal', pct: 0, cpf: '', pix: '', cor: REC_CORES[recCfgEdit.funcionarios.length % REC_CORES.length] }); renderRecCfg(); }
 function recCfgDelFunc(i) { recCfgEdit.funcionarios.splice(i, 1); renderRecCfg(); }
 function recCfgAddEmp() { const inp = document.getElementById('rc-newemp'); const v = (inp.value || '').trim().toUpperCase(); if (v && !recCfgEdit.empresas.includes(v)) recCfgEdit.empresas.push(v); renderRecCfg(); }
 function recCfgDelEmp(i) { recCfgEdit.empresas.splice(i, 1); renderRecCfg(); }
 function salvarRecCfg() {
-  const funcs = recCfgEdit.funcionarios.filter(f => (f.nome || '').trim()).map((f, i) => ({ id: f.id || ('f_' + Math.random().toString(36).slice(2, 7)), nome: f.nome.trim(), pct: Number(f.pct) || 0, cpf: (f.cpf || '').trim(), pix: (f.pix || '').trim(), cor: f.cor || REC_CORES[i % REC_CORES.length] }));
+  const funcs = recCfgEdit.funcionarios.filter(f => (f.nome || '').trim()).map((f, i) => ({ id: f.id || ('f_' + Math.random().toString(36).slice(2, 7)), nome: f.nome.trim(), tipo: f.tipo === 'auditor' ? 'auditor' : 'principal', pct: f.tipo === 'auditor' ? (Number(f.pct) || 0) : 0, cpf: (f.cpf || '').trim(), pix: (f.pix || '').trim(), cor: f.cor || REC_CORES[i % REC_CORES.length] }));
   const cfg = { funcionarios: funcs, empresas: recCfgEdit.empresas, contas: recCfgEdit.contas, pixRecebimento: (recCfgEdit.pixRecebimento || '').trim() };
   REC_CONFIG = cfg;
   if (db) db.ref(`${hotelPath()}/recepcaoConfig`).set(cfg);
@@ -4127,7 +4156,8 @@ function salvarRecCfg() {
 }
 function imprimirRec() {
   const cfg = recConfig(); const base = recConfirmado();
-  const funcs = cfg.funcionarios.map(f => `<tr><td>${esc(f.nome)}</td><td style="text-align:right">${f.pct || 0}%</td><td style="text-align:right">${fmtBRL(recComissaoBruta(f))}</td><td style="text-align:right">${fmtBRL(recRetFunc(f.id))}</td><td style="text-align:right"><b>${fmtBRL(recDisponivel(f))}</b></td><td>${esc(f.pix || f.cpf || '')}</td></tr>`).join('');
+  const pcts = recPcts();
+  const funcs = cfg.funcionarios.map(f => `<tr><td>${esc(f.nome)}${f.tipo === 'auditor' ? ' (auditor)' : ''}</td><td style="text-align:right">${recFmtPct(pcts[f.id])}</td><td style="text-align:right">${fmtBRL(recComissaoBruta(f))}</td><td style="text-align:right">${fmtBRL(recRetFunc(f.id))}</td><td style="text-align:right"><b>${fmtBRL(recDisponivel(f))}</b></td><td>${esc(f.pix || f.cpf || '')}</td></tr>`).join('');
   const contas = cfg.contas.map(c => `<tr><td>${esc(c)}</td><td style="text-align:right">${fmtBRL(recContaTotal(c))}</td></tr>`).join('');
   const w = window.open('', '_blank'); if (!w) { alert('Permita pop-ups para imprimir.'); return; }
   w.document.write(`<!doctype html><html><head><meta charset="utf-8"><title>Recepção · Comissões</title><style>body{font-family:Arial;color:#111;margin:28px}h1{font-size:18px;margin:0 0 2px}h2{font-size:13px;margin:16px 0 6px}.sub{color:#555;font-size:12px}table{width:100%;border-collapse:collapse;font-size:12px;margin-bottom:8px}th,td{border:1px solid #ccc;padding:5px 8px;text-align:left}th{background:#f2f2f2}</style></head><body>
