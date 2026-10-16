@@ -1,5 +1,5 @@
 // ─── CONSTANTS ────────────────────────────────────────────────────────────────
-const APP_VERSION = 'v129';
+const APP_VERSION = 'v130';
 const MONTHS_PT = ['Jan','Fev','Mar','Abr','Mai','Jun','Jul','Ago','Set','Out','Nov','Dez'];
 const PRIO_CYCLE = ['ALTA','MEDIA','BAIXA'];
 const ST_CYCLE   = ['INDENTIFICADO','ANDAMENTO','CONCLUIDO'];
@@ -122,10 +122,10 @@ const REC_CONTAS_PADRAO = ['CAIXA', 'CONTA', 'CONTA2'];
 const REC_STATUS = ['A REALIZAR', 'PENDENTE', 'CONFIRMADO'];
 const REC_EMPRESAS_PADRAO = ['JOÃO', 'TX', 'STYLUS', 'RENATO', 'BALCÃO', 'COZINHA', 'OMAR', 'JAQUELINE', 'DEIVISON', 'ADELSON', 'NICOLE', 'CARLOS', 'ALEXANDRE', 'MULTISHOW', 'PETRONIO', 'EXTRAS', 'FILHOS DO SOL'];
 const REC_FUNCS_PADRAO = [
-  { id: 'f_jhonatan', nome: 'JHONATAN', pct: 25, cpf: '143.849.667-25', pix: '143.849.667-25' },
-  { id: 'f_guilherme', nome: 'GUILHERME', pct: 25, cpf: '139.887.727-12', pix: '139.887.727-12' },
-  { id: 'f_max', nome: 'MAX', pct: 25, cpf: '164.598.917-88', pix: '164.598.917-88' },
-  { id: 'f_junior', nome: 'JUNIOR', pct: 25, cpf: '108.076.557-32', pix: '108.076.557-32' },
+  { id: 'f_jhonatan', nome: 'JHONATAN', tipo: 'principal', pct: 0, cpf: '143.849.667-25', pix: '143.849.667-25' },
+  { id: 'f_guilherme', nome: 'GUILHERME', tipo: 'principal', pct: 0, cpf: '139.887.727-12', pix: '139.887.727-12' },
+  { id: 'f_max', nome: 'MAX', tipo: 'principal', pct: 0, cpf: '164.598.917-88', pix: '164.598.917-88' },
+  { id: 'f_junior', nome: 'JUNIOR', tipo: 'principal', pct: 0, cpf: '108.076.557-32', pix: '108.076.557-32' },
 ];
 function recConfig() {
   const c = REC_CONFIG || {};
@@ -4135,12 +4135,17 @@ function renderRecCfg() {
     <input class="rc-pixrec" id="rc-pixrec" value="${esc(recCfgEdit.pixRecebimento || '')}" placeholder="Chave PIX da recepção" onchange="recCfgEdit.pixRecebimento=this.value">
     <div class="mactions" style="margin-top:16px"><button class="btn btn-ghost btn-xs" onclick="closeRecCfg()">Cancelar</button><button class="btn btn-gold btn-xs" onclick="salvarRecCfg()">💾 Salvar</button></div>`;
 }
+const REC_AUDITOR_PADRAO = 7.5; // % base do auditor noturno
 function recCfgF(i, campo, val) {
   const f = recCfgEdit.funcionarios[i]; if (!f) return;
-  if (campo === 'pct') f.pct = parseFloat(String(val).replace(',', '.')) || 0;
-  else f[campo] = String(val).trim();
-  if (campo === 'tipo' && val === 'auditor' && !(f.pct > 0)) f.pct = 7.5;
-  if (campo === 'tipo' || campo === 'pct') renderRecCfg();
+  if (campo === 'tipo') {
+    const novo = (val === 'auditor' ? 'auditor' : 'principal');
+    if (novo === 'auditor' && f.tipo !== 'auditor') f.pct = REC_AUDITOR_PADRAO; // ao virar auditor, assume 7,5% (sobrescreve a % de principal)
+    f.tipo = novo;
+    renderRecCfg(); return;
+  }
+  if (campo === 'pct') { f.pct = parseFloat(String(val).replace(',', '.')) || 0; renderRecCfg(); return; }
+  f[campo] = String(val).trim();
 }
 function recCfgAddFunc() { recCfgEdit.funcionarios.push({ id: 'f_' + Date.now().toString(36) + Math.random().toString(36).slice(2, 5), nome: '', tipo: 'principal', pct: 0, cpf: '', pix: '', cor: REC_CORES[recCfgEdit.funcionarios.length % REC_CORES.length] }); renderRecCfg(); }
 function recCfgDelFunc(i) { recCfgEdit.funcionarios.splice(i, 1); renderRecCfg(); }
