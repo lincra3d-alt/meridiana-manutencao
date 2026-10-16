@@ -1,5 +1,5 @@
 // ─── CONSTANTS ────────────────────────────────────────────────────────────────
-const APP_VERSION = 'v123';
+const APP_VERSION = 'v124';
 const MONTHS_PT = ['Jan','Fev','Mar','Abr','Mai','Jun','Jul','Ago','Set','Out','Nov','Dez'];
 const PRIO_CYCLE = ['ALTA','MEDIA','BAIXA'];
 const ST_CYCLE   = ['INDENTIFICADO','ANDAMENTO','CONCLUIDO'];
@@ -113,6 +113,28 @@ let GOV_ITENS = {};       // { contagem: [nomes], inventario: [nomes] }
 let GOV_DADOS = {};       // { contagem: { localKey: {itens:[{n,q}],total,ts,por,obs} }, inventario: {...} }
 let GOV_RECEBIDOS = [];   // fila do link aguardando confirmação: [{ id, tipo, localKey, itens, total, ts, por }]
 let GOV_MINIMOS = {};     // regra do mínimo por item: { 'T. ROSTO': {m:'x'|'+', v:Number} }; ausente = padrão ×3
+// ─── RECEPÇÃO (comissões) ───
+let REC_CONFIG = null;    // { funcionarios:[{id,nome,pct,cpf,pix}], empresas:[...], contas:[...], pixRecebimento }
+let REC_LANC = [];        // lançamentos: [{id, empresa, desc, data, valor, conta, status}]
+let REC_RET = [];         // retiradas: [{id, func, conta, valor, data, desc}]
+const REC_CONTAS_PADRAO = ['CAIXA', 'CONTA', 'CONTA2'];
+const REC_STATUS = ['A REALIZAR', 'PENDENTE', 'CONFIRMADO'];
+const REC_EMPRESAS_PADRAO = ['JOÃO', 'TX', 'STYLUS', 'RENATO', 'BALCÃO', 'COZINHA', 'OMAR', 'JAQUELINE', 'DEIVISON', 'ADELSON', 'NICOLE', 'CARLOS', 'ALEXANDRE', 'MULTISHOW', 'PETRONIO', 'EXTRAS', 'FILHOS DO SOL'];
+const REC_FUNCS_PADRAO = [
+  { id: 'f_jhonatan', nome: 'JHONATAN', pct: 25, cpf: '143.849.667-25', pix: '143.849.667-25' },
+  { id: 'f_guilherme', nome: 'GUILHERME', pct: 25, cpf: '139.887.727-12', pix: '139.887.727-12' },
+  { id: 'f_max', nome: 'MAX', pct: 25, cpf: '164.598.917-88', pix: '164.598.917-88' },
+  { id: 'f_junior', nome: 'JUNIOR', pct: 25, cpf: '108.076.557-32', pix: '108.076.557-32' },
+];
+function recConfig() {
+  const c = REC_CONFIG || {};
+  return {
+    funcionarios: Array.isArray(c.funcionarios) && c.funcionarios.length ? c.funcionarios : REC_FUNCS_PADRAO,
+    empresas: Array.isArray(c.empresas) && c.empresas.length ? c.empresas : REC_EMPRESAS_PADRAO,
+    contas: Array.isArray(c.contas) && c.contas.length ? c.contas : REC_CONTAS_PADRAO,
+    pixRecebimento: c.pixRecebimento || '',
+  };
+}
 let govView = 'contagem'; // submenu ativo
 let govItemFiltro = 'all'; // filtro do gráfico "Enxoval por item": 'all' (todos os blocos) ou a key de um bloco
 function govRecebidosDe(tipo) { return GOV_RECEBIDOS.filter(r => r && r.tipo === tipo).sort((a, b) => (b.ts || 0) - (a.ts || 0)); }
@@ -343,6 +365,9 @@ function listenData() {
         const newGovRec = Array.isArray(val.governancaRecebidos) ? val.governancaRecebidos : [];
         const newGovMin = (val.governancaMinimos && typeof val.governancaMinimos === 'object' && !Array.isArray(val.governancaMinimos)) ? val.governancaMinimos : {};
         const newGovBlocos = Array.isArray(val.governancaBlocos) ? val.governancaBlocos : null;
+        const newRecConfig = (val.recepcaoConfig && typeof val.recepcaoConfig === 'object' && !Array.isArray(val.recepcaoConfig)) ? val.recepcaoConfig : null;
+        const newRecLanc = Array.isArray(val.recepcaoLancamentos) ? val.recepcaoLancamentos : [];
+        const newRecRet = Array.isArray(val.recepcaoRetiradas) ? val.recepcaoRetiradas : [];
 
         const changed = JSON.stringify(newMonths) !== JSON.stringify(MONTHS)
                      || JSON.stringify(newData)   !== JSON.stringify(DATA)
@@ -354,7 +379,10 @@ function listenData() {
                      || JSON.stringify(newGovDados)   !== JSON.stringify(GOV_DADOS)
                      || JSON.stringify(newGovRec)     !== JSON.stringify(GOV_RECEBIDOS)
                      || JSON.stringify(newGovMin)     !== JSON.stringify(GOV_MINIMOS)
-                     || JSON.stringify(newGovBlocos)  !== JSON.stringify(GOV_BLOCOS_UNIT);
+                     || JSON.stringify(newGovBlocos)  !== JSON.stringify(GOV_BLOCOS_UNIT)
+                     || JSON.stringify(newRecConfig)  !== JSON.stringify(REC_CONFIG)
+                     || JSON.stringify(newRecLanc)    !== JSON.stringify(REC_LANC)
+                     || JSON.stringify(newRecRet)     !== JSON.stringify(REC_RET);
         INVENTARIO = newInv;
         CONTAGEM_ITENS = newContItens;
         CONTAGENS = newContagens;
@@ -363,6 +391,7 @@ function listenData() {
         GOV_RECEBIDOS = newGovRec;
         GOV_MINIMOS = newGovMin;
         GOV_BLOCOS_UNIT = newGovBlocos;
+        REC_CONFIG = newRecConfig; REC_LANC = newRecLanc; REC_RET = newRecRet;
         const lixPurged = newLix.length !== (Array.isArray(val.lixeira) ? val.lixeira : []).length;
         LIXEIRA = newLix;
         LOG = Array.isArray(val.log) ? val.log : [];
@@ -662,7 +691,7 @@ function modsResumo(m) {
   if (m.frota) return 'Frota (Serviços + Viagem)';
   const a = [];
   if (m.plan) a.push('Planejado'); if (m.emrg) a.push('Emergencial'); if (m.asg) a.push('ASG');
-  if (m.cont) a.push('Contagem'); if (m.gov) a.push('Governança'); if (m.inv) a.push('Inventário');
+  if (m.cont) a.push('Contagem'); if (m.gov) a.push('Governança'); if (m.recep) a.push('Recepção'); if (m.inv) a.push('Inventário');
   return a.join(', ') || '(sem módulos)';
 }
 function renderUnidadesList() {
@@ -710,6 +739,7 @@ function openUnidadeEditor(key) {
           ${chk('uf-asg', m.asg, 'ASG')}
           ${chk('uf-cont', m.cont, 'Contagem')}
           ${chk('uf-gov', m.gov, 'Governança')}
+          ${chk('uf-recep', m.recep, 'Recepção (comissões)')}
           ${chk('uf-inv', m.inv, 'Inventário')}
         </div>
       </div>
@@ -733,8 +763,9 @@ async function salvarUnidade(key) {
     mods = {
       plan: document.getElementById('uf-plan').checked, emrg: document.getElementById('uf-emrg').checked, asg: document.getElementById('uf-asg').checked,
       cont: document.getElementById('uf-cont').checked, gov: document.getElementById('uf-gov').checked, inv: document.getElementById('uf-inv').checked,
+      recep: document.getElementById('uf-recep').checked,
     };
-    if (!mods.plan && !mods.emrg && !mods.asg && !mods.cont && !mods.gov && !mods.inv) { alert('Marque pelo menos um módulo.'); return; }
+    if (!mods.plan && !mods.emrg && !mods.asg && !mods.cont && !mods.gov && !mods.inv && !mods.recep) { alert('Marque pelo menos um módulo.'); return; }
   }
   const isBase = key && HOTELS_BASE.some(h => h.key === key);
   let k = key;
@@ -1514,6 +1545,7 @@ function modulosDaUnidade(key) {
     if (m.asg) mods.push({ k: 'asg', lbl: 'ASG' });
     if (m.cont) mods.push({ k: 'cont', lbl: 'Contagem' });
     if (m.gov) mods.push({ k: 'gov', lbl: 'Governança' });
+    if (m.recep) mods.push({ k: 'recepcao', lbl: 'Recepção' });
   }
   mods.push({ k: 'gest', lbl: 'Gestão' });
   if (m.inv) mods.push({ k: 'inv', lbl: 'Inventário' });
@@ -1550,6 +1582,7 @@ function refreshActiveModule() {
     if (m === 'dash') renderDashboard();
     else if (m === 'cont') renderContagemView();
     else if (m === 'gov') renderGovernanca();
+    else if (m === 'recepcao') renderRecepcao();
     else if (m === 'inv') renderInventario();
     else if (m === 'rel' || m === 'cad' || m === 'param' || m === 'gest') buildViews();
     else if (MONTHS.length) renderBothTables(activeMonth); // plan / emrg / asg
@@ -2958,7 +2991,7 @@ function switchHotel(key) {
   clearTimeout(saveDebounce);
   currentHotel = key;
   localStorage.setItem('currentHotel', key);
-  MONTHS = []; DATA = []; INVENTARIO = []; LIXEIRA = []; LOG = []; SERVICOS = [...baseServicos()]; DESTINOS = [...VIAGEM_DESTINOS]; VEICULOS = [...CARROS_VEICULOS]; GERADORES = [...CARROS_GERADORES]; ASGSERV = [...ASG_SERVICOS]; REGRAS = []; CONTAGEM_ITENS = {}; CONTAGENS = []; GOV_ITENS = {}; GOV_DADOS = {}; GOV_RECEBIDOS = []; GOV_MINIMOS = {}; GOV_BLOCOS_UNIT = null;
+  MONTHS = []; DATA = []; INVENTARIO = []; LIXEIRA = []; LOG = []; SERVICOS = [...baseServicos()]; DESTINOS = [...VIAGEM_DESTINOS]; VEICULOS = [...CARROS_VEICULOS]; GERADORES = [...CARROS_GERADORES]; ASGSERV = [...ASG_SERVICOS]; REGRAS = []; CONTAGEM_ITENS = {}; CONTAGENS = []; GOV_ITENS = {}; GOV_DADOS = {}; GOV_RECEBIDOS = []; GOV_MINIMOS = {}; GOV_BLOCOS_UNIT = null; REC_CONFIG = null; REC_LANC = []; REC_RET = [];
   activeMonth = 0;
   activeModule = 'dash';
   document.getElementById('tabs').innerHTML = '';
@@ -3901,6 +3934,192 @@ async function recusarGovRecebido(tipo, id) {
     if (r) logAction('Recusou recebido Governança', govTipoLabel(tipo) + ' · ' + govLocalLabel(r.localKey));
     renderGovMain(); openGovRecebidos(tipo);
   } catch (e) { console.error(e); alert('Não foi possível recusar. Tente de novo.'); }
+}
+
+// ─── RECEPÇÃO (comissões) ─────────────────────────────────────────────────────
+function recSave(node, arr) { if (db) db.ref(`${hotelPath()}/${node}`).set(arr && arr.length ? arr : null); }
+function recConfirmado() { return REC_LANC.filter(l => l && String(l.status || '').toUpperCase() === 'CONFIRMADO').reduce((s, l) => s + (Number(l.valor) || 0), 0); }
+function recContaTotal(conta) {
+  const lanc = REC_LANC.filter(l => l && l.conta === conta).reduce((s, l) => s + (Number(l.valor) || 0), 0);
+  const ret = REC_RET.filter(r => r && r.conta === conta).reduce((s, r) => s + (Number(r.valor) || 0), 0);
+  return lanc - ret;
+}
+function recRetFunc(fid) { return REC_RET.filter(r => r && r.func === fid).reduce((s, r) => s + (Number(r.valor) || 0), 0); }
+function recComissaoBruta(f) { return recConfirmado() * (Number(f.pct) || 0) / 100; }
+function recDisponivel(f) { return recComissaoBruta(f) - recRetFunc(f.id); }
+function recFuncById(id) { return recConfig().funcionarios.find(f => f.id === id); }
+function recFuncNome(id) { const f = recFuncById(id); return f ? f.nome : id; }
+
+function renderRecepcao() {
+  const el = document.getElementById('recepcao-inner'); if (!el) return;
+  const cfg = recConfig();
+  const base = recConfirmado();
+  const cards = cfg.contas.map(c => `<div class="rec-card"><div class="rec-card-l">${esc(c)}</div><div class="rec-card-v">${fmtBRL(recContaTotal(c))}</div></div>`).join('') +
+    `<div class="rec-card rec-card-base"><div class="rec-card-l">Base (confirmados)</div><div class="rec-card-v">${fmtBRL(base)}</div></div>`;
+  const funcs = cfg.funcionarios.map(f => {
+    const bruta = recComissaoBruta(f), ret = recRetFunc(f.id), disp = bruta - ret;
+    return `<div class="rec-func">
+      <div class="rec-func-top"><b>${esc(f.nome)}</b><span class="rec-pct">${f.pct || 0}%</span></div>
+      <div class="rec-func-disp">${fmtBRL(disp)}</div>
+      <div class="rec-func-sub">Comissão ${fmtBRL(bruta)} · Retiradas ${fmtBRL(ret)}</div>
+      <div class="rec-func-pix">PIX: ${esc(f.pix || f.cpf || '—')}</div>
+    </div>`;
+  }).join('');
+  const lancRows = REC_LANC.slice().sort((a, b) => (b.data || '').localeCompare(a.data || '')).map(l => {
+    const st = String(l.status || '').toUpperCase();
+    const cls = st === 'CONFIRMADO' ? 'rec-st-c' : st === 'PENDENTE' ? 'rec-st-p' : 'rec-st-r';
+    return `<tr>
+      <td>${esc(l.empresa || '')}</td><td>${esc(l.desc || '')}</td><td>${esc(fmtBR(l.data) || l.data || '')}</td>
+      <td class="rec-q">${fmtBRL(l.valor)}</td><td>${esc(l.conta || '')}</td>
+      <td><span class="rec-st ${cls}">${esc(l.status || '')}</span></td>
+      <td class="rec-acts"><button class="btn btn-ghost btn-xs" onclick="openRecLanc('${esc(l.id)}')">✏</button><button class="btn btn-ghost btn-xs" onclick="removeRecLanc('${esc(l.id)}')">🗑</button></td>
+    </tr>`;
+  }).join('') || '<tr><td colspan="7" style="text-align:center;color:var(--muted);padding:14px">Nenhum lançamento ainda.</td></tr>';
+  const retRows = REC_RET.slice().sort((a, b) => (b.data || '').localeCompare(a.data || '')).map(r => `<tr>
+      <td>${esc(recFuncNome(r.func))}</td><td>${esc(r.desc || '')}</td><td>${esc(fmtBR(r.data) || r.data || '')}</td>
+      <td class="rec-q">${fmtBRL(r.valor)}</td><td>${esc(r.conta || '')}</td>
+      <td class="rec-acts"><button class="btn btn-ghost btn-xs" onclick="removeRecRet('${esc(r.id)}')">🗑</button></td>
+    </tr>`).join('') || '<tr><td colspan="6" style="text-align:center;color:var(--muted);padding:12px">Nenhuma retirada.</td></tr>';
+  el.innerHTML = `
+    <div class="rec-head">
+      <h2 class="modview-title" style="margin:0">💼 Recepção · Comissões</h2>
+      <div class="rec-head-btns">
+        <button class="btn btn-gold btn-xs" onclick="openRecLanc(null)">➕ Lançamento</button>
+        <button class="btn btn-ghost btn-xs" onclick="openRecRet()">➖ Retirada</button>
+        <button class="btn btn-ghost btn-xs" onclick="openRecCfg()">⚙ Configurar</button>
+        <button class="btn btn-ghost btn-xs" onclick="imprimirRec()">🖨 Imprimir</button>
+      </div>
+    </div>
+    <div class="rec-cards">${cards}</div>
+    <h4 class="cont-h4">Funcionários</h4>
+    <div class="rec-funcs">${funcs}</div>
+    <h4 class="cont-h4">Lançamentos</h4>
+    <div class="rec-tblwrap"><table class="cont-table rec-table"><thead><tr><th>Empresa</th><th>Descrição</th><th>Data</th><th class="rec-q">Valor</th><th>Conta</th><th>Status</th><th></th></tr></thead><tbody>${lancRows}</tbody></table></div>
+    <h4 class="cont-h4">Retiradas</h4>
+    <div class="rec-tblwrap"><table class="cont-table rec-table"><thead><tr><th>Funcionário</th><th>Descrição</th><th>Data</th><th class="rec-q">Valor</th><th>Conta</th><th></th></tr></thead><tbody>${retRows}</tbody></table></div>`;
+}
+
+// ── Lançamento ──
+function openRecLanc(id) {
+  const cfg = recConfig();
+  const l = id ? REC_LANC.find(x => x && x.id === id) : null;
+  const opt = (arr, cur) => arr.map(v => `<option value="${esc(v)}"${(cur || '') === v ? ' selected' : ''}>${esc(v)}</option>`).join('');
+  document.getElementById('reclanc-body').innerHTML = `
+    <h3>${l ? 'Editar' : 'Novo'} lançamento</h3>
+    <div class="rec-form">
+      <div class="rec-f"><label>Empresa</label><select id="rl-empresa"><option value="">—</option>${opt(cfg.empresas, l && l.empresa)}</select></div>
+      <div class="rec-f"><label>Data</label><input id="rl-data" type="date" value="${l && l.data ? esc(toISO(l.data)) : new Date().toISOString().slice(0, 10)}"></div>
+      <div class="rec-f rec-f-full"><label>Descrição</label><input id="rl-desc" value="${l ? esc(l.desc || '') : ''}" placeholder="Ex.: passeio de barco"></div>
+      <div class="rec-f"><label>Valor (R$)</label><input id="rl-valor" type="number" step="0.01" min="0" value="${l ? esc(String(l.valor || '')) : ''}"></div>
+      <div class="rec-f"><label>Conta</label><select id="rl-conta">${opt(cfg.contas, l && l.conta || cfg.contas[0])}</select></div>
+      <div class="rec-f rec-f-full"><label>Status</label><select id="rl-status">${opt(REC_STATUS, l && l.status || 'PENDENTE')}</select></div>
+    </div>
+    <div class="mactions"><button class="btn btn-ghost btn-xs" onclick="closeRecLanc()">Cancelar</button><button class="btn btn-gold btn-xs" onclick="salvarRecLanc('${id ? esc(id) : ''}')">💾 Salvar</button></div>`;
+  document.getElementById('ov-reclanc').classList.add('show');
+}
+function closeRecLanc() { document.getElementById('ov-reclanc').classList.remove('show'); }
+function salvarRecLanc(id) {
+  const empresa = document.getElementById('rl-empresa').value;
+  const valor = Math.max(0, parseFloat(document.getElementById('rl-valor').value) || 0);
+  if (!empresa || !valor) { alert('Informe a empresa e o valor.'); return; }
+  const rec = {
+    id: id || ('rl' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6)),
+    empresa, desc: document.getElementById('rl-desc').value.trim(),
+    data: fmtBR(document.getElementById('rl-data').value) || document.getElementById('rl-data').value,
+    valor, conta: document.getElementById('rl-conta').value, status: document.getElementById('rl-status').value,
+  };
+  if (id) { const i = REC_LANC.findIndex(x => x && x.id === id); if (i >= 0) REC_LANC[i] = rec; } else REC_LANC.unshift(rec);
+  recSave('recepcaoLancamentos', REC_LANC); logAction(id ? 'Editou lançamento Recepção' : 'Lançou comissão', empresa + ' · ' + fmtBRL(valor) + ' · ' + rec.status);
+  closeRecLanc(); renderRecepcao();
+}
+function removeRecLanc(id) {
+  if (!confirm('Remover este lançamento?')) return;
+  REC_LANC = REC_LANC.filter(x => x && x.id !== id); recSave('recepcaoLancamentos', REC_LANC); renderRecepcao();
+}
+// ── Retirada ──
+function openRecRet() {
+  const cfg = recConfig();
+  document.getElementById('recret-body').innerHTML = `
+    <h3>Nova retirada</h3>
+    <div class="rec-form">
+      <div class="rec-f rec-f-full"><label>Funcionário</label><select id="rr-func">${cfg.funcionarios.map(f => `<option value="${esc(f.id)}">${esc(f.nome)}</option>`).join('')}</select></div>
+      <div class="rec-f"><label>Valor (R$)</label><input id="rr-valor" type="number" step="0.01" min="0"></div>
+      <div class="rec-f"><label>Conta</label><select id="rr-conta">${cfg.contas.map(c => `<option value="${esc(c)}">${esc(c)}</option>`).join('')}</select></div>
+      <div class="rec-f"><label>Data</label><input id="rr-data" type="date" value="${new Date().toISOString().slice(0, 10)}"></div>
+      <div class="rec-f rec-f-full"><label>Descrição (opcional)</label><input id="rr-desc" placeholder="Ex.: adiantamento"></div>
+    </div>
+    <div class="mactions"><button class="btn btn-ghost btn-xs" onclick="closeRecRet()">Cancelar</button><button class="btn btn-gold btn-xs" onclick="salvarRecRet()">💾 Salvar</button></div>`;
+  document.getElementById('ov-recret').classList.add('show');
+}
+function closeRecRet() { document.getElementById('ov-recret').classList.remove('show'); }
+function salvarRecRet() {
+  const func = document.getElementById('rr-func').value;
+  const valor = Math.max(0, parseFloat(document.getElementById('rr-valor').value) || 0);
+  if (!func || !valor) { alert('Informe o funcionário e o valor.'); return; }
+  REC_RET.unshift({ id: 'rr' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6), func, valor, conta: document.getElementById('rr-conta').value, data: fmtBR(document.getElementById('rr-data').value) || document.getElementById('rr-data').value, desc: document.getElementById('rr-desc').value.trim() });
+  recSave('recepcaoRetiradas', REC_RET); logAction('Retirada Recepção', recFuncNome(func) + ' · ' + fmtBRL(valor));
+  closeRecRet(); renderRecepcao();
+}
+function removeRecRet(id) { if (!confirm('Remover esta retirada?')) return; REC_RET = REC_RET.filter(x => x && x.id !== id); recSave('recepcaoRetiradas', REC_RET); renderRecepcao(); }
+
+// ── Configurar (funcionários, empresas, PIX) ──
+let recCfgEdit = null;
+function openRecCfg() {
+  const c = recConfig();
+  recCfgEdit = { funcionarios: JSON.parse(JSON.stringify(c.funcionarios)), empresas: [...c.empresas], contas: [...c.contas], pixRecebimento: c.pixRecebimento || '' };
+  renderRecCfg();
+  document.getElementById('ov-reccfg').classList.add('show');
+}
+function closeRecCfg() { document.getElementById('ov-reccfg').classList.remove('show'); recCfgEdit = null; }
+function renderRecCfg() {
+  const funcs = recCfgEdit.funcionarios.map((f, i) => `
+    <div class="rc-func">
+      <input class="rc-nome" value="${esc(f.nome || '')}" placeholder="Nome" onchange="recCfgF(${i},'nome',this.value)">
+      <input class="rc-pct" type="number" step="1" min="0" value="${f.pct || 0}" onchange="recCfgF(${i},'pct',this.value)" title="%"><span class="rc-pctl">%</span>
+      <input class="rc-cpf" value="${esc(f.cpf || '')}" placeholder="CPF" onchange="recCfgF(${i},'cpf',this.value)">
+      <input class="rc-pix" value="${esc(f.pix || '')}" placeholder="PIX" onchange="recCfgF(${i},'pix',this.value)">
+      <button class="btn btn-ghost btn-xs" onclick="recCfgDelFunc(${i})">🗑</button>
+    </div>`).join('');
+  const emp = recCfgEdit.empresas.map((e, i) => `<span class="rc-emp">${esc(e)}<button onclick="recCfgDelEmp(${i})">✕</button></span>`).join('');
+  document.getElementById('reccfg-body').innerHTML = `
+    <h3>⚙ Configurar Recepção</h3>
+    <h4 class="cont-h4" style="font-size:13px">Funcionários (nome, %, CPF, PIX)</h4>
+    <div class="rc-funcs">${funcs}</div>
+    <button class="btn btn-ghost btn-xs" onclick="recCfgAddFunc()" style="margin-top:6px">➕ Funcionário</button>
+    <h4 class="cont-h4" style="font-size:13px;margin-top:16px">Empresas</h4>
+    <div class="rc-emps">${emp || '<span class="cont-hint">nenhuma</span>'}</div>
+    <div class="rc-addemp"><input id="rc-newemp" placeholder="Nova empresa" onkeydown="if(event.key==='Enter')recCfgAddEmp()"><button class="btn btn-ghost btn-xs" onclick="recCfgAddEmp()">+ Adicionar</button></div>
+    <h4 class="cont-h4" style="font-size:13px;margin-top:16px">PIX de recebimento (opcional)</h4>
+    <input class="rc-pixrec" id="rc-pixrec" value="${esc(recCfgEdit.pixRecebimento || '')}" placeholder="Chave PIX da recepção" onchange="recCfgEdit.pixRecebimento=this.value">
+    <div class="mactions" style="margin-top:16px"><button class="btn btn-ghost btn-xs" onclick="closeRecCfg()">Cancelar</button><button class="btn btn-gold btn-xs" onclick="salvarRecCfg()">💾 Salvar</button></div>`;
+}
+function recCfgF(i, campo, val) { if (!recCfgEdit.funcionarios[i]) return; recCfgEdit.funcionarios[i][campo] = campo === 'pct' ? (parseFloat(val) || 0) : val.trim(); }
+function recCfgAddFunc() { recCfgEdit.funcionarios.push({ id: 'f_' + Date.now().toString(36) + Math.random().toString(36).slice(2, 5), nome: '', pct: 25, cpf: '', pix: '' }); renderRecCfg(); }
+function recCfgDelFunc(i) { recCfgEdit.funcionarios.splice(i, 1); renderRecCfg(); }
+function recCfgAddEmp() { const inp = document.getElementById('rc-newemp'); const v = (inp.value || '').trim().toUpperCase(); if (v && !recCfgEdit.empresas.includes(v)) recCfgEdit.empresas.push(v); renderRecCfg(); }
+function recCfgDelEmp(i) { recCfgEdit.empresas.splice(i, 1); renderRecCfg(); }
+function salvarRecCfg() {
+  const funcs = recCfgEdit.funcionarios.filter(f => (f.nome || '').trim()).map(f => ({ id: f.id || ('f_' + Math.random().toString(36).slice(2, 7)), nome: f.nome.trim(), pct: Number(f.pct) || 0, cpf: (f.cpf || '').trim(), pix: (f.pix || '').trim() }));
+  const cfg = { funcionarios: funcs, empresas: recCfgEdit.empresas, contas: recCfgEdit.contas, pixRecebimento: (recCfgEdit.pixRecebimento || '').trim() };
+  REC_CONFIG = cfg;
+  if (db) db.ref(`${hotelPath()}/recepcaoConfig`).set(cfg);
+  logAction('Configurou Recepção', funcs.length + ' funcionário(s), ' + cfg.empresas.length + ' empresa(s)');
+  closeRecCfg(); renderRecepcao();
+}
+function imprimirRec() {
+  const cfg = recConfig(); const base = recConfirmado();
+  const funcs = cfg.funcionarios.map(f => `<tr><td>${esc(f.nome)}</td><td style="text-align:right">${f.pct || 0}%</td><td style="text-align:right">${fmtBRL(recComissaoBruta(f))}</td><td style="text-align:right">${fmtBRL(recRetFunc(f.id))}</td><td style="text-align:right"><b>${fmtBRL(recDisponivel(f))}</b></td><td>${esc(f.pix || f.cpf || '')}</td></tr>`).join('');
+  const contas = cfg.contas.map(c => `<tr><td>${esc(c)}</td><td style="text-align:right">${fmtBRL(recContaTotal(c))}</td></tr>`).join('');
+  const w = window.open('', '_blank'); if (!w) { alert('Permita pop-ups para imprimir.'); return; }
+  w.document.write(`<!doctype html><html><head><meta charset="utf-8"><title>Recepção · Comissões</title><style>body{font-family:Arial;color:#111;margin:28px}h1{font-size:18px;margin:0 0 2px}h2{font-size:13px;margin:16px 0 6px}.sub{color:#555;font-size:12px}table{width:100%;border-collapse:collapse;font-size:12px;margin-bottom:8px}th,td{border:1px solid #ccc;padding:5px 8px;text-align:left}th{background:#f2f2f2}</style></head><body>
+    <h1>Recepção · Comissões · ${esc(hotelInfo().name)}</h1>
+    <div class="sub">Base (confirmados): ${fmtBRL(base)} · impresso em ${fmtDataHora(Date.now())}</div>
+    <h2>Por funcionário</h2>
+    <table><thead><tr><th>Funcionário</th><th>%</th><th>Comissão</th><th>Retiradas</th><th>Disponível</th><th>PIX</th></tr></thead><tbody>${funcs}</tbody></table>
+    <h2>Por conta</h2>
+    <table><thead><tr><th>Conta</th><th>Saldo</th></tr></thead><tbody>${contas}</tbody></table>
+    </body></html>`);
+  w.document.close(); setTimeout(() => { try { w.print(); } catch (e) {} }, 300);
 }
 
 // ─── CONFIRMAR PENDENTE ───────────────────────────────────────────────────────
