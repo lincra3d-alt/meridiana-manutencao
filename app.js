@@ -1,5 +1,5 @@
 // ─── CONSTANTS ────────────────────────────────────────────────────────────────
-const APP_VERSION = 'v124';
+const APP_VERSION = 'v125';
 const MONTHS_PT = ['Jan','Fev','Mar','Abr','Mai','Jun','Jul','Ago','Set','Out','Nov','Dez'];
 const PRIO_CYCLE = ['ALTA','MEDIA','BAIXA'];
 const ST_CYCLE   = ['INDENTIFICADO','ANDAMENTO','CONCLUIDO'];
@@ -1624,6 +1624,7 @@ function buildViews() {
     <div class="modview-actions">
       ${isFrota ? `<button class="btn btn-ghost" onclick="openRegras()">🔧 Regras de manutenção</button>` : ''}
       ${hotelInfo().governanca ? `<button class="btn btn-ghost" onclick="openGovMin()">🧺 Mínimos do enxoval (Governança)</button>` : ''}
+      ${hotelInfo().mods && hotelInfo().mods.recep ? `<button class="btn btn-ghost" onclick="openRecCfg()">💼 Recepção · Funcionários, empresas e %</button>` : ''}
       ${hotelInfo().inventario ? `<button class="btn btn-ghost" onclick="openInvAdd()">📦 Adicionar item de inventário</button>` : ''}
       <button class="btn btn-ghost" onclick="downloadBackup()">💾 Baixar backup (JSON)</button>
       <button class="btn btn-ghost" onclick="openLixeira()">🗑 Lixeira</button>
@@ -3950,53 +3951,59 @@ function recDisponivel(f) { return recComissaoBruta(f) - recRetFunc(f.id); }
 function recFuncById(id) { return recConfig().funcionarios.find(f => f.id === id); }
 function recFuncNome(id) { const f = recFuncById(id); return f ? f.nome : id; }
 
+let recView = 'lancamentos'; // 'lancamentos' | 'comissoes'
+function setRecView(v) { recView = (v === 'comissoes' ? 'comissoes' : 'lancamentos'); renderRecepcao(); }
 function renderRecepcao() {
   const el = document.getElementById('recepcao-inner'); if (!el) return;
   const cfg = recConfig();
   const base = recConfirmado();
-  const cards = cfg.contas.map(c => `<div class="rec-card"><div class="rec-card-l">${esc(c)}</div><div class="rec-card-v">${fmtBRL(recContaTotal(c))}</div></div>`).join('') +
-    `<div class="rec-card rec-card-base"><div class="rec-card-l">Base (confirmados)</div><div class="rec-card-v">${fmtBRL(base)}</div></div>`;
-  const funcs = cfg.funcionarios.map(f => {
-    const bruta = recComissaoBruta(f), ret = recRetFunc(f.id), disp = bruta - ret;
-    return `<div class="rec-func">
-      <div class="rec-func-top"><b>${esc(f.nome)}</b><span class="rec-pct">${f.pct || 0}%</span></div>
-      <div class="rec-func-disp">${fmtBRL(disp)}</div>
-      <div class="rec-func-sub">Comissão ${fmtBRL(bruta)} · Retiradas ${fmtBRL(ret)}</div>
-      <div class="rec-func-pix">PIX: ${esc(f.pix || f.cpf || '—')}</div>
+  // Resumo compacto (chips): contas + base
+  const chips = cfg.contas.map(c => `<div class="rec-chip"><span class="rec-chip-l">${esc(c)}</span><span class="rec-chip-v">${fmtBRL(recContaTotal(c))}</span></div>`).join('') +
+    `<div class="rec-chip rec-chip-base"><span class="rec-chip-l">Base confirmada</span><span class="rec-chip-v">${fmtBRL(base)}</span></div>`;
+  const head = `
+    <div class="rec-head">
+      <h2 class="modview-title" style="margin:0">💼 Recepção</h2>
+      <div class="rec-head-btns">
+        <button class="btn btn-gold btn-xs" onclick="openRecLanc(null)">➕ Lançamento</button>
+        <button class="btn btn-ghost btn-xs" onclick="openRecRet()">➖ Retirada</button>
+        <button class="btn btn-ghost btn-xs" onclick="imprimirRec()">🖨 Imprimir</button>
+      </div>
+    </div>
+    <div class="rec-chips">${chips}</div>
+    <div class="rec-tabs">
+      <button class="rec-tab${recView === 'lancamentos' ? ' active' : ''}" onclick="setRecView('lancamentos')">📋 Lançamentos</button>
+      <button class="rec-tab${recView === 'comissoes' ? ' active' : ''}" onclick="setRecView('comissoes')">💰 Comissões</button>
     </div>`;
-  }).join('');
-  const lancRows = REC_LANC.slice().sort((a, b) => (b.data || '').localeCompare(a.data || '')).map(l => {
+  if (recView === 'comissoes') {
+    const linhas = cfg.funcionarios.map(f => {
+      const bruta = recComissaoBruta(f), ret = recRetFunc(f.id), disp = bruta - ret;
+      return `<tr><td><b>${esc(f.nome)}</b></td><td class="rec-q">${f.pct || 0}%</td><td class="rec-q">${fmtBRL(bruta)}</td><td class="rec-q">${fmtBRL(ret)}</td><td class="rec-q rec-disp">${fmtBRL(disp)}</td><td class="rec-pixcell">${esc(f.pix || f.cpf || '—')}</td></tr>`;
+    }).join('') || '<tr><td colspan="6" style="text-align:center;color:var(--muted);padding:14px">Configure os funcionários em Parâmetros.</td></tr>';
+    el.innerHTML = head + `
+      <div class="rec-tblwrap"><table class="cont-table rec-table"><thead><tr><th>Funcionário</th><th class="rec-q">%</th><th class="rec-q">Comissão</th><th class="rec-q">Retiradas</th><th class="rec-q">Disponível</th><th>PIX</th></tr></thead><tbody>${linhas}</tbody></table></div>
+      <h4 class="cont-h4">Retiradas</h4>
+      <div class="rec-tblwrap"><table class="cont-table rec-table"><thead><tr><th>Funcionário</th><th>Descrição</th><th>Data</th><th class="rec-q">Valor</th><th>Conta</th><th></th></tr></thead><tbody>${recRetRows()}</tbody></table></div>`;
+    return;
+  }
+  const lancRows = REC_LANC.slice().sort((a, b) => (b.ts || 0) - (a.ts || 0)).map(l => {
     const st = String(l.status || '').toUpperCase();
     const cls = st === 'CONFIRMADO' ? 'rec-st-c' : st === 'PENDENTE' ? 'rec-st-p' : 'rec-st-r';
     return `<tr>
-      <td>${esc(l.empresa || '')}</td><td>${esc(l.desc || '')}</td><td>${esc(fmtBR(l.data) || l.data || '')}</td>
+      <td><b>${esc(l.empresa || '')}</b></td><td>${esc(l.desc || '')}</td><td>${esc(l.data || '')}</td>
       <td class="rec-q">${fmtBRL(l.valor)}</td><td>${esc(l.conta || '')}</td>
       <td><span class="rec-st ${cls}">${esc(l.status || '')}</span></td>
       <td class="rec-acts"><button class="btn btn-ghost btn-xs" onclick="openRecLanc('${esc(l.id)}')">✏</button><button class="btn btn-ghost btn-xs" onclick="removeRecLanc('${esc(l.id)}')">🗑</button></td>
     </tr>`;
-  }).join('') || '<tr><td colspan="7" style="text-align:center;color:var(--muted);padding:14px">Nenhum lançamento ainda.</td></tr>';
-  const retRows = REC_RET.slice().sort((a, b) => (b.data || '').localeCompare(a.data || '')).map(r => `<tr>
-      <td>${esc(recFuncNome(r.func))}</td><td>${esc(r.desc || '')}</td><td>${esc(fmtBR(r.data) || r.data || '')}</td>
+  }).join('') || '<tr><td colspan="7" style="text-align:center;color:var(--muted);padding:16px">Nenhum lançamento ainda. Clique em <b>➕ Lançamento</b>.</td></tr>';
+  el.innerHTML = head + `
+    <div class="rec-tblwrap"><table class="cont-table rec-table"><thead><tr><th>Empresa</th><th>Descrição</th><th>Data</th><th class="rec-q">Valor</th><th>Conta</th><th>Status</th><th></th></tr></thead><tbody>${lancRows}</tbody></table></div>`;
+}
+function recRetRows() {
+  return REC_RET.slice().sort((a, b) => (b.ts || 0) - (a.ts || 0)).map(r => `<tr>
+      <td>${esc(recFuncNome(r.func))}</td><td>${esc(r.desc || '')}</td><td>${esc(r.data || '')}</td>
       <td class="rec-q">${fmtBRL(r.valor)}</td><td>${esc(r.conta || '')}</td>
       <td class="rec-acts"><button class="btn btn-ghost btn-xs" onclick="removeRecRet('${esc(r.id)}')">🗑</button></td>
     </tr>`).join('') || '<tr><td colspan="6" style="text-align:center;color:var(--muted);padding:12px">Nenhuma retirada.</td></tr>';
-  el.innerHTML = `
-    <div class="rec-head">
-      <h2 class="modview-title" style="margin:0">💼 Recepção · Comissões</h2>
-      <div class="rec-head-btns">
-        <button class="btn btn-gold btn-xs" onclick="openRecLanc(null)">➕ Lançamento</button>
-        <button class="btn btn-ghost btn-xs" onclick="openRecRet()">➖ Retirada</button>
-        <button class="btn btn-ghost btn-xs" onclick="openRecCfg()">⚙ Configurar</button>
-        <button class="btn btn-ghost btn-xs" onclick="imprimirRec()">🖨 Imprimir</button>
-      </div>
-    </div>
-    <div class="rec-cards">${cards}</div>
-    <h4 class="cont-h4">Funcionários</h4>
-    <div class="rec-funcs">${funcs}</div>
-    <h4 class="cont-h4">Lançamentos</h4>
-    <div class="rec-tblwrap"><table class="cont-table rec-table"><thead><tr><th>Empresa</th><th>Descrição</th><th>Data</th><th class="rec-q">Valor</th><th>Conta</th><th>Status</th><th></th></tr></thead><tbody>${lancRows}</tbody></table></div>
-    <h4 class="cont-h4">Retiradas</h4>
-    <div class="rec-tblwrap"><table class="cont-table rec-table"><thead><tr><th>Funcionário</th><th>Descrição</th><th>Data</th><th class="rec-q">Valor</th><th>Conta</th><th></th></tr></thead><tbody>${retRows}</tbody></table></div>`;
 }
 
 // ── Lançamento ──
@@ -4026,9 +4033,9 @@ function salvarRecLanc(id) {
     id: id || ('rl' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6)),
     empresa, desc: document.getElementById('rl-desc').value.trim(),
     data: fmtBR(document.getElementById('rl-data').value) || document.getElementById('rl-data').value,
-    valor, conta: document.getElementById('rl-conta').value, status: document.getElementById('rl-status').value,
+    valor, conta: document.getElementById('rl-conta').value, status: document.getElementById('rl-status').value, ts: Date.now(),
   };
-  if (id) { const i = REC_LANC.findIndex(x => x && x.id === id); if (i >= 0) REC_LANC[i] = rec; } else REC_LANC.unshift(rec);
+  if (id) { const i = REC_LANC.findIndex(x => x && x.id === id); if (i >= 0) { rec.ts = REC_LANC[i].ts || rec.ts; REC_LANC[i] = rec; } } else REC_LANC.unshift(rec);
   recSave('recepcaoLancamentos', REC_LANC); logAction(id ? 'Editou lançamento Recepção' : 'Lançou comissão', empresa + ' · ' + fmtBRL(valor) + ' · ' + rec.status);
   closeRecLanc(); renderRecepcao();
 }
@@ -4056,7 +4063,7 @@ function salvarRecRet() {
   const func = document.getElementById('rr-func').value;
   const valor = Math.max(0, parseFloat(document.getElementById('rr-valor').value) || 0);
   if (!func || !valor) { alert('Informe o funcionário e o valor.'); return; }
-  REC_RET.unshift({ id: 'rr' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6), func, valor, conta: document.getElementById('rr-conta').value, data: fmtBR(document.getElementById('rr-data').value) || document.getElementById('rr-data').value, desc: document.getElementById('rr-desc').value.trim() });
+  REC_RET.unshift({ id: 'rr' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6), func, valor, conta: document.getElementById('rr-conta').value, data: fmtBR(document.getElementById('rr-data').value) || document.getElementById('rr-data').value, desc: document.getElementById('rr-desc').value.trim(), ts: Date.now() });
   recSave('recepcaoRetiradas', REC_RET); logAction('Retirada Recepção', recFuncNome(func) + ' · ' + fmtBRL(valor));
   closeRecRet(); renderRecepcao();
 }
